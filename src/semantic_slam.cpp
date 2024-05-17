@@ -40,6 +40,7 @@
 #include <Eigen/src/Geometry/Transform.h>
 #include <Eigen/src/Geometry/Translation.h>
 #include <g2o/core/hyper_graph.h>
+#include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2/convert.h>
@@ -131,7 +132,7 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
   last_odom_abs_orientation_received_ = odom_orientation;
   last_odom_abs_covariance_received_  = odom_covariance;
 
-  return;
+  // return;
 
   // TODO: Define how to use this
   // msg->header.frame_id;
@@ -291,6 +292,8 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
   Eigen::Quaterniond aruco_orientation;
   std::string aruco_id;
 
+  return;
+
   static int counter = 0;
 
   counter += 1;
@@ -390,20 +393,25 @@ G2O_USE_OPTIMIZATION_LIBRARY(cholmod)
 G2O_USE_OPTIMIZATION_LIBRARY(csparse)
 
 OptimizerG2O::OptimizerG2O() {
-  std::string solver_type          = "lm_var_cholmod";  // Check list of solver types
-  graph_ptr_                       = std::make_unique<g2o::SparseOptimizer>();
-  g2o::SparseOptimizer* graph      = dynamic_cast<g2o::SparseOptimizer*>(graph_ptr_.get());
-  temp_graph_ptr_                  = std::make_unique<g2o::SparseOptimizer>();
-  g2o::SparseOptimizer* temp_graph = dynamic_cast<g2o::SparseOptimizer*>(temp_graph_ptr_.get());
+  std::string solver_type = "lm_var_cholmod";  // Check list of solver types
+  graph_ptr_              = std::make_shared<g2o::SparseOptimizer>();
+  // g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(graph_ptr_.get());
+  temp_graph_ptr_ = std::make_unique<g2o::SparseOptimizer>();
+  // g2o::SparseOptimizer* temp_graph = dynamic_cast<g2o::SparseOptimizer*>(temp_graph_ptr_.get());
 
   std::cout << "construct solver: " << solver_type << std::endl;
   g2o::OptimizationAlgorithmFactory* solver_factory = g2o::OptimizationAlgorithmFactory::instance();
   g2o::OptimizationAlgorithmProperty solver_property;
   g2o::OptimizationAlgorithm* solver = solver_factory->construct(solver_type, solver_property);
-  graph->setAlgorithm(solver);
-  temp_graph->setAlgorithm(solver);
+  graph_ptr_->setAlgorithm(solver);
+  std::cout << "construct solver: " << solver_type << std::endl;
+  g2o::OptimizationAlgorithmFactory* solver_factory_temp =
+      g2o::OptimizationAlgorithmFactory::instance();
+  g2o::OptimizationAlgorithmProperty solver_property_temp;
+  g2o::OptimizationAlgorithm* solver_temp = solver_factory->construct(solver_type, solver_property);
+  temp_graph_ptr_->setAlgorithm(solver_temp);
 
-  if (!graph->solver()) {
+  if (!graph_ptr_->solver()) {
     std::cerr << std::endl;
     std::cerr << "error : failed to allocate solver!!" << std::endl;
     solver_factory->listSolvers(std::cerr);
@@ -417,7 +425,7 @@ OptimizerG2O::OptimizerG2O() {
     std::cout << "Absolute odometry" << std::endl;
   }
 
-  initGraph();
+  initGraph(graph_ptr_);
 }
 
 std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> OptimizerG2O::getOdomNodePoses() {
@@ -467,73 +475,79 @@ std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> OptimizerG2O::getObj
   return node_poses;
 }
 
-std::pair<g2o::VertexSE3*, int> OptimizerG2O::addSE3Node(const Eigen::Isometry3d& pose) {
+std::pair<g2o::VertexSE3*, int> OptimizerG2O::addSE3Node(
+    const Eigen::Isometry3d& _pose,
+    std::shared_ptr<g2o::SparseOptimizer> _graph) {
   g2o::VertexSE3* vertex(new g2o::VertexSE3());
   auto id = n_vertices_++;
   vertex->setId(static_cast<int>(id));
-  vertex->setEstimate(pose);
-  if (!graph_ptr_->addVertex(vertex)) {
+  vertex->setEstimate(_pose);
+  if (!_graph->addVertex(vertex)) {
+    // if (!graph_ptr_->addVertex(vertex)) {
     std::cerr << "Vertex not added" << std::endl;
   }
   return {vertex, id};
 }
 
-g2o::EdgeSE3* OptimizerG2O::addSE3Edge(g2o::VertexSE3* v1,
-                                       g2o::VertexSE3* v2,
-                                       const Eigen::Isometry3d& relative_pose,
-                                       const Eigen::MatrixXd& information_matrix) {
+g2o::EdgeSE3* OptimizerG2O::addSE3Edge(g2o::VertexSE3* _v1,
+                                       g2o::VertexSE3* _v2,
+                                       const Eigen::Isometry3d& _relative_pose,
+                                       const Eigen::MatrixXd& _information_matrix,
+                                       std::shared_ptr<g2o::SparseOptimizer> _graph) {
   // Check Information Matrix
   // std::cout << "information_matrix" << std::endl;
   // std::cout << information_matrix << std::endl;
 
   g2o::EdgeSE3* edge(new g2o::EdgeSE3());
   edge->setId(static_cast<int>(n_edges_++));
-  edge->setMeasurement(relative_pose);
-  edge->setInformation(information_matrix);
-  edge->vertices()[0] = v1;
-  edge->vertices()[1] = v2;
-  if (!graph_ptr_->addEdge(edge)) {
+  edge->setMeasurement(_relative_pose);
+  edge->setInformation(_information_matrix);
+  edge->vertices()[0] = _v1;
+  edge->vertices()[1] = _v2;
+  if (!_graph->addEdge(edge)) {
+    // if (!graph_ptr_->addEdge(edge)) {
     std::cerr << "Edge not added" << std::endl;
   }
   return edge;
 }
 
-void OptimizerG2O::optimizeGraph() {
-  g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(graph_ptr_.get());
-  const int num_iterations    = 100;
+void OptimizerG2O::optimizeGraph(std::shared_ptr<g2o::SparseOptimizer> _graph) {
+  // g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(graph_ptr_.get());
+  const int num_iterations = 100;
 
   std::cout << std::endl;
   std::cout << "--- pose graph optimization ---" << std::endl;
-  std::cout << "nodes: " << graph->vertices().size() << "   edges: " << graph->edges().size()
+  std::cout << "nodes: " << _graph->vertices().size() << "   edges: " << _graph->edges().size()
             << std::endl;
   // std::cout << "optimizing... " << std::flush;
 
   // std::cout << "init" << std::endl;
-  graph->initializeOptimization();
-  graph->setVerbose(false);
+  _graph->initializeOptimization();
+  _graph->setVerbose(false);
 
-  double chi2 = graph->chi2();
+  double chi2 = _graph->chi2();
   if (std::isnan(chi2)) {
     std::cout << "GRAPH RETURNED A NAN WAITING AFTER OPTIMIZATION" << std::endl;
   }
-  std::cout << "optimize!!" << std::endl;
-  int iterations = graph->optimize(num_iterations);
-  std::cout << "done" << std::endl;
+  std::cout << "Start optimization" << std::endl;
+  int iterations = _graph->optimize(num_iterations);
+  std::cout << "Optimization done" << std::endl;
   // std::cout << "iterations: " << iterations << " / " << num_iterations << std::endl;
   // std::cout << "chi2: (before)" << chi2 << " -> (after)" << graph->chi2() << std::endl;
-  if (std::isnan(graph->chi2())) {
+  if (std::isnan(_graph->chi2())) {
     throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
   }
 }
 
-void OptimizerG2O::initGraph(const Eigen::Vector3d& initial_position,
+void OptimizerG2O::initGraph(std::shared_ptr<g2o::SparseOptimizer> _graph,
+                             const Eigen::Vector3d& initial_position,
                              const Eigen::Quaterniond& initial_orientation) {
   // this position will help the optimizer to find the correct solution ( its like the
   // prior )
   // Initial_pose is set to (0,0,0) by default
   Eigen::Isometry3d node_pose = Eigen::Translation3d(initial_position) * initial_orientation;
   // auto [ground, id]           = addSE3Node(Eigen::Isometry3d::Identity());
-  auto [ground, id] = addSE3Node(node_pose);
+  auto [ground, id] = addSE3Node(node_pose, _graph);
   odom_nodes_.emplace_back(ground);
   ground->setFixed(true);
   last_node_      = ground;
@@ -544,10 +558,10 @@ void OptimizerG2O::addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
                                   const Eigen::Isometry3d& _relative_pose,
                                   const Eigen::MatrixXd& _relative_covariance) {
   std::cout << "*** NEW KEY FRAME ***" << std::endl;
-  auto [node, id] = addSE3Node(_absolute_pose);
+  auto [node, id] = addSE3Node(_absolute_pose, graph_ptr_);
   odom_nodes_.emplace_back(node);
 
-  addSE3Edge(last_node_, node, _relative_pose, _relative_covariance);
+  addSE3Edge(last_node_, node, _relative_pose, _relative_covariance, graph_ptr_);
   last_node_ = node;
 }
 
@@ -564,7 +578,7 @@ void OptimizerG2O::addNewKeyframe(const Eigen::Vector3d& _relative_translation,
   std::cout << "Node: " << absolute_odom_position << std::endl;
   std::cout << "Node: " << absolute_odom_orientation << std::endl;
 
-  auto [node, id] = addSE3Node(node_pose);
+  auto [node, id] = addSE3Node(node_pose, graph_ptr_);
   odom_nodes_.emplace_back(node);
 
   // Eigen::Isometry3d relative_pose;
@@ -581,7 +595,7 @@ void OptimizerG2O::addNewKeyframe(const Eigen::Vector3d& _relative_translation,
   // Eigen::MatrixXd::Identity(6, 6);
   std::cout << "last_node " << last_node_ << std::endl;
   std::cout << "new_node " << node << std::endl;
-  addSE3Edge(last_node_, node, relative_pose, _relative_covariance);
+  addSE3Edge(last_node_, node, relative_pose, _relative_covariance, graph_ptr_);
   // addSE3Edge(last_node_, node, relative_pose, Eigen::MatrixXd::Identity(6, 6));
   last_node_ = node;
 }
@@ -623,7 +637,7 @@ void OptimizerG2O::handleNewOdom(const Eigen::Vector3d& _odom_position,
 
   // TODO: Choose when to optimize: either every time a new keyframe is added, or every certain
   // period of time
-  // optimizeGraph();
+  optimizeGraph(graph_ptr_);
 
   for (auto p : graph_ptr_->vertices()) {
     // for (pair[ int id, VertexSE3 node ] : graph->vertices()) {
@@ -747,7 +761,7 @@ void OptimizerG2O::handleNewObject(const Eigen::Vector3d& _obj_position,
   Eigen::Isometry3d node_pose =
       Eigen::Translation3d(absolute_odom_position) * absolute_odom_orientation;
 
-  auto [node, id] = addSE3Node(node_pose);
+  auto [node, id] = addSE3Node(node_pose, graph_ptr_);
   std::cout << "ADDED NEW NODE" << std::endl;
   // Eigen::Isometry3d relative_pose;
   // relative_pose.setIdentity();
@@ -758,7 +772,7 @@ void OptimizerG2O::handleNewObject(const Eigen::Vector3d& _obj_position,
   //
   // auto prev_node = last_node_;
   // Eigen::MatrixXd::Identity(6, 6);
-  addSE3Edge(last_node_, node, relative_pose, _obj_covariance);
+  addSE3Edge(last_node_, node, relative_pose, _obj_covariance, graph_ptr_);
   std::cout << "ADDED NEW EDGE" << std::endl;
   // last_node_ = node;
 };

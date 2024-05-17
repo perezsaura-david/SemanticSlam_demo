@@ -39,6 +39,7 @@
 
 // ROS2
 #include <array>
+#include <memory>
 #include <nav_msgs/msg/detail/path__struct.hpp>
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -92,9 +93,14 @@
 //                            g2o::VertexSE3* v2,
 //                            const Eigen::Isometry3d& relative_pose,
 //                            const Eigen::MatrixXd& information_matrix);
+//   void optimizeGraph();
+//   void initGraph(const Eigen::Vector3d& initial_position       = Eigen::Vector3d(0, 0, 0),
+//                  const Eigen::Quaterniond& initial_orientation = Eigen::Quaterniond(1, 0, 0, 0));
 
 // private:
-//   std::unique_ptr<g2o::SparseOptimizer> graph_ptr_;       // g2o graph
+//   std::unique_ptr<g2o::SparseOptimizer> graph_ptr_;  // g2o graph
+//   std::vector<g2o::HyperGraph::Vertex*> odom_nodes_;
+//   std::vector<g2o::HyperGraph::Vertex*> obj_nodes_;
 // };
 
 class OptimizerG2O {
@@ -117,8 +123,6 @@ public:
 
   std::vector<std::array<double, 7>> getGraph();
   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getOdomNodePoses();
-  // std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getObjOdomNodesPoses();
-  // std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getObjNodesPoses();
   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getObjNodePoses(
       const std::string _mode);
   bool getNodePose(g2o::HyperGraph::Vertex* _node,
@@ -129,14 +133,17 @@ private:
   std::vector<g2o::HyperGraph::Vertex*> obj_odom_nodes_;
   std::vector<g2o::HyperGraph::Vertex*> obj_nodes_;
 
-  std::pair<g2o::VertexSE3*, int> addSE3Node(const Eigen::Isometry3d& pose);
-  g2o::EdgeSE3* addSE3Edge(g2o::VertexSE3* v1,
-                           g2o::VertexSE3* v2,
-                           const Eigen::Isometry3d& relative_pose,
-                           const Eigen::MatrixXd& information_matrix);
   // FOR EACH GRAPH
-  void optimizeGraph();
-  void initGraph(const Eigen::Vector3d& initial_position       = Eigen::Vector3d(0, 0, 0),
+  std::pair<g2o::VertexSE3*, int> addSE3Node(const Eigen::Isometry3d& _pose,
+                                             std::shared_ptr<g2o::SparseOptimizer> _graph);
+  g2o::EdgeSE3* addSE3Edge(g2o::VertexSE3* _v1,
+                           g2o::VertexSE3* _v2,
+                           const Eigen::Isometry3d& _relative_pose,
+                           const Eigen::MatrixXd& _information_matrix,
+                           std::shared_ptr<g2o::SparseOptimizer> _graph);
+  void optimizeGraph(std::shared_ptr<g2o::SparseOptimizer> _graph);
+  void initGraph(std::shared_ptr<g2o::SparseOptimizer> _graph,
+                 const Eigen::Vector3d& initial_position       = Eigen::Vector3d(0, 0, 0),
                  const Eigen::Quaterniond& initial_orientation = Eigen::Quaterniond(1, 0, 0, 0));
   // TODO: Add default value to covariance?
   void addNewKeyframe(const Eigen::Vector3d& _relative_translation,
@@ -145,8 +152,11 @@ private:
   void addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
                       const Eigen::Isometry3d& _relative_pose,
                       const Eigen::MatrixXd& _relative_covariance);
-  std::unique_ptr<g2o::SparseOptimizer> graph_ptr_;       // g2o graph
-  std::unique_ptr<g2o::SparseOptimizer> temp_graph_ptr_;  // g2o graph
+  std::shared_ptr<g2o::SparseOptimizer> graph_ptr_;       // g2o graph
+  std::shared_ptr<g2o::SparseOptimizer> temp_graph_ptr_;  // g2o graph
+  // std::unique_ptr<GraphG2O> graph_ptr_;
+  // std::unique_ptr<GraphG2O> temp_graph_ptr_;
+
   bool odometry_is_relative_ = false;
   bool first_odom_           = true;
   int n_vertices_            = 0;
@@ -183,10 +193,10 @@ private:
   // std::filesystem::path plugin_name_;
   // std::shared_ptr<pluginlib::ClassLoader<as2_state_estimator_plugin_base::StateEstimatorBase>>
   //     loader_;
-  // std::shared_ptr<as2_state_estimator_plugin_base::StateEstimatorBase> plugin_ptr_;
-  // std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  // std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tfstatic_broadcaster_;
-  // std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  // std::shared_ptr<as2_state_estimator_plugin_base::StateEstimatorBase>
+  // plugin_ptr_; std::shared_ptr<tf2_ros::TransformBroadcaster>
+  // tf_broadcaster_; std::shared_ptr<tf2_ros::StaticTransformBroadcaster>
+  // tfstatic_broadcaster_; std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   // std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   //
 

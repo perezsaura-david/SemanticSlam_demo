@@ -18,6 +18,8 @@ endif()
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+set(CMAKE_BUILD_TYPE Debug)
+
 
 # find dependencies
 set(PROJECT_DEPENDENCIES
@@ -31,6 +33,7 @@ set(PROJECT_DEPENDENCIES
   tf2
   tf2_ros
   fmt
+  backward_ros
 )
 
 foreach(DEPENDENCY ${PROJECT_DEPENDENCIES})
