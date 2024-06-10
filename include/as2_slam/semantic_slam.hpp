@@ -37,6 +37,7 @@
 #ifndef __AS2__SEMANTIC_SLAM_HPP_
 #define __AS2__SEMANTIC_SLAM_HPP_
 
+#include <as2_msgs/msg/detail/pose_stamped_with_id__struct.hpp>
 #define RESET_COLOR "\033[0m"
 #define RED_COLOR "\033[0;31m"
 #define GREEN_COLOR "\033[1;32m"
@@ -109,7 +110,6 @@ public:
   ObjectNodeInfo(const std::string _id,
                  g2o::HyperGraph::Vertex* _node,
                  const Eigen::MatrixXd& _covariance);
-  // ObjectNodeInfo(std::string _id, g2o::VertexSE3* _node, Eigen::MatrixXd& _covariance);
   ~ObjectNodeInfo(){};
 
   std::string object_id;
@@ -122,8 +122,6 @@ public:
   GraphG2O(std::string _name);
   ~GraphG2O(){};
   std::vector<std::array<double, 7>> getGraph();
-  // void getObjectNodes();
-  // std::vector<std::pair<std::string, g2o::HyperGraph::Vertex*>> getObjectNodes();
   std::vector<ObjectNodeInfo> getObjectNodes();
   std::pair<g2o::VertexSE3*, int> addSE3Node(const Eigen::Isometry3d& pose);
   g2o::EdgeSE3* addSE3Edge(g2o::VertexSE3* v1,
@@ -140,9 +138,6 @@ public:
                             const Eigen::Isometry3d& _obj_absolute_pose,
                             const Eigen::Isometry3d& _obj_relative_pose,
                             const Eigen::MatrixXd& _obj_covariance);
-  // const Eigen::Isometry3d& _absolute_pose,
-  // const Eigen::Isometry3d& _relative_pose,
-  // const Eigen::MatrixXd& _relative_covariance);
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph
   g2o::VertexSE3* last_node_;
   Eigen::Isometry3d last_node_pose_;
@@ -167,9 +162,6 @@ public:
   bool handleNewOdom(const Eigen::Vector3d& _odom_position,
                      const Eigen::Quaterniond& _odom_orientation,
                      const Eigen::MatrixXd& _odom_covariance);
-  // void handleNewObject(const Eigen::Vector3d& _obj_position,
-  //                      const Eigen::Quaterniond& _obj_orientation,
-  //                      const Eigen::MatrixXd& _obj_covariance);
   void handleNewObject(const std::string _obj_id,
                        const Eigen::Vector3d& _obj_position,
                        const Eigen::Quaterniond& _obj_orientation,
@@ -178,10 +170,6 @@ public:
                        const Eigen::Quaterniond& _odom_orientation,
                        const Eigen::MatrixXd& _odom_covariance);
 
-  // std::vector<std::array<double, 7>> getGraph();
-  // std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getOdomNodePoses();
-  // std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> getObjNodePoses(
-  //     const std::string _mode);
   bool getNodePose(g2o::HyperGraph::Vertex* _node,
                    std::pair<Eigen::Vector3d, Eigen::Quaterniond>& _node_pose);
   std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> getEdgesLines(
@@ -191,52 +179,19 @@ public:
       const std::string _mode);
 
 private:
-  // std::vector<g2o::HyperGraph::Vertex*> odom_nodes_;
-  // std::vector<g2o::HyperGraph::Vertex*> obj_odom_nodes_;
-  // std::vector<g2o::HyperGraph::Vertex*> obj_nodes_;
-
-  // FOR EACH GRAPH
-  std::pair<g2o::VertexSE3*, int> addSE3Node(const Eigen::Isometry3d& _pose,
-                                             std::shared_ptr<g2o::SparseOptimizer> _graph);
-  // g2o::EdgeSE3* addSE3Edge(g2o::VertexSE3* _v1,
-  //                          g2o::VertexSE3* _v2,
-  //                          const Eigen::Isometry3d& _relative_pose,
-  //                          const Eigen::MatrixXd& _information_matrix,
-  //                          std::shared_ptr<g2o::SparseOptimizer> _graph);
-  // void optimizeGraph(std::shared_ptr<g2o::SparseOptimizer> _graph);
-  // void initGraph(std::shared_ptr<g2o::SparseOptimizer> _graph,
-  //                const Eigen::Vector3d& initial_position       = Eigen::Vector3d(0, 0, 0),
-  //                const Eigen::Quaterniond& initial_orientation = Eigen::Quaterniond(1, 0, 0,
-  //                0));
-  //
-  // TODO: Add default value to covariance?
-  // void addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
-  //                     const Eigen::Isometry3d& _relative_pose,
-  //                     const Eigen::MatrixXd& _relative_covariance);
-  // std::shared_ptr<g2o::SparseOptimizer> graph_ptr_;       // g2o graph
-  // std::shared_ptr<g2o::SparseOptimizer> temp_graph_ptr_;  // g2o graph
-
   bool first_odom_          = true;
   bool temp_graph_generated = false;
-  int n_vertices_           = 0;
-  int n_edges_              = 0;
   // TODO: add time_threshold_
   double translation_distance_from_last_node_ = 0.0;
   double rotation_distance_from_last_node_    = 0.0;
 
   Eigen::Vector3d absolute_odom_position;
   Eigen::Quaterniond absolute_odom_orientation;
-  // g2o::VertexSE3* last_node_;
-  // g2o::VertexSE3* temp_last_node_;
-  // Eigen::Vector3d last_node_position_;
-  // Eigen::Quaterniond last_node_orientation_;
-  // Eigen::Isometry3d last_node_pose_;
-  // Eigen::Isometry3d temp_last_node_pose_;
 
   // PARAMETERS
   double odometry_distance_threshold_        = 1.0;  // meters
   double odometry_orientation_threshold_     = 2;    // radians
-  double obj_odometry_distance_threshold_    = 0.5;  // meters
+  double obj_odometry_distance_threshold_    = 0.2;  // meters
   double obj_odometry_orientation_threshold_ = 0.5;  // radians
   bool odometry_is_relative_                 = false;
 };
@@ -245,6 +200,8 @@ class SemanticSlam : public as2::Node {
 public:
   SemanticSlam();
   ~SemanticSlam(){};
+  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
 
 private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -268,29 +225,24 @@ private:
   // tf_broadcaster_; std::shared_ptr<tf2_ros::StaticTransformBroadcaster>
   // tfstatic_broadcaster_; std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   // std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-  //
 
-public:
-  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
-  void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
-
-private:
-  // OptimizerG2O optimizer;
   std::unique_ptr<OptimizerG2O> optimizer_ptr_;  // g2o graph
-  nav_msgs::msg::Path generateGraphMsg(const std::vector<std::array<double, 7>>& _graph);
   Eigen::Vector3d last_odom_abs_position_received_;
   Eigen::Quaterniond last_odom_abs_orientation_received_;
   Eigen::MatrixXd last_odom_abs_covariance_received_;
-  // visualization_msgs::msg::MarkerArray generateOdomNodesMsg();
-  // visualization_msgs::msg::MarkerArray generateObjOdomNodesMsg();
-  // visualization_msgs::msg::MarkerArray generateObjNodesMsg();
+
+  // void getPoseFromMsg(const as2_msgs::msg::PoseStampedWithID& _msg,
+  void getPoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg,
+                      Eigen::Vector3d& _position,
+                      Eigen::Quaterniond& _orientation);
+  nav_msgs::msg::Path generateGraphMsg(const std::vector<std::array<double, 7>>& _graph);
   visualization_msgs::msg::MarkerArray generateEdgesMsg(std::shared_ptr<GraphG2O>& _graph,
                                                         const std::array<float, 3>& color);
   visualization_msgs::msg::MarkerArray generateNodesMsg(std::shared_ptr<GraphG2O>& _graph,
                                                         std::string _mode,
                                                         const std::array<float, 3>& _color);
-  void visualizeCleanTempGraph();
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
+  void visualizeCleanTempGraph();
   void visualizeMainGraph();
   void visualizeTempGraph();
 };

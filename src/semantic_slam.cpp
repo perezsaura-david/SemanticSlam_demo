@@ -48,6 +48,7 @@
 #include <tf2/time.h>
 #include <array>
 #include <as2_core/names/topics.hpp>
+#include <as2_msgs/msg/detail/pose_stamped_with_id__struct.hpp>
 #include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
 #include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 #include <memory>
@@ -159,108 +160,11 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
   bool new_node_added =
       optimizer_ptr_->handleNewOdom(odom_position, odom_orientation, odom_covariance);
 
-  // VISUALIZATION MSGS
-  // std::vector<std::array<double, 7>> graph = optimizer_ptr_->main_graph->getGraph();
-  // nav_msgs::msg::Path graph_msg            = generateGraphMsg(graph);
-  // graph_pub_->publish(graph_msg);
-  // visualization_msgs::msg::MarkerArray odom_nodes_msg = generateOdomNodesMsg();
-  // odom_nodes_pub_->publish(odom_nodes_msg);
-  //
   if (new_node_added) {
     visualizeMainGraph();
     visualizeCleanTempGraph();
   }
 }
-
-// visualization_msgs::msg::MarkerArray SemanticSlam::generateOdomNodesMsg() {
-//   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> odom_nodes_poses =
-//       optimizer_ptr_->getOdomNodePoses();
-//   visualization_msgs::msg::MarkerArray nodes_markers_msg;
-//   // std::cout << "REFERENCE FRAME :" << reference_frame_ << std::endl;
-//   // nodes_markers_msg.header.frame_id = reference_frame_;
-//   int counter = 0;
-//   for (auto node_pose : odom_nodes_poses) {
-//     visualization_msgs::msg::Marker node_marker_msg;
-//     node_marker_msg.type = node_marker_msg.ARROW;
-//     node_marker_msg.id   = counter;
-//     counter++;
-//     node_marker_msg.header.frame_id    = reference_frame_;
-//     node_marker_msg.pose.position.x    = node_pose.first.x();
-//     node_marker_msg.pose.position.y    = node_pose.first.y();
-//     node_marker_msg.pose.position.z    = node_pose.first.z();
-//     node_marker_msg.pose.orientation.w = node_pose.second.w();
-//     node_marker_msg.pose.orientation.x = node_pose.second.x();
-//     node_marker_msg.pose.orientation.y = node_pose.second.y();
-//     node_marker_msg.pose.orientation.z = node_pose.second.z();
-//     node_marker_msg.scale.x            = 0.5;
-//     node_marker_msg.scale.y            = 0.05;
-//     node_marker_msg.scale.z            = 0.05;
-//     node_marker_msg.color.b            = 1.0;
-//     node_marker_msg.color.a            = 1.0;
-//     nodes_markers_msg.markers.emplace_back(node_marker_msg);
-//   }
-//   return nodes_markers_msg;
-// }
-
-// visualization_msgs::msg::MarkerArray SemanticSlam::generateObjOdomNodesMsg() {
-//   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> odom_nodes_poses =
-//       optimizer_ptr_->getObjNodePoses("odom");
-//   visualization_msgs::msg::MarkerArray nodes_markers_msg;
-//   // std::cout << "REFERENCE FRAME :" << reference_frame_ << std::endl;
-//   // nodes_markers_msg.header.frame_id = reference_frame_;
-//   int counter = 0;
-//   for (auto node_pose : odom_nodes_poses) {
-//     visualization_msgs::msg::Marker node_marker_msg;
-//     node_marker_msg.type = node_marker_msg.ARROW;
-//     node_marker_msg.id   = counter;
-//     counter++;
-//     node_marker_msg.header.frame_id    = reference_frame_;
-//     node_marker_msg.pose.position.x    = node_pose.first.x();
-//     node_marker_msg.pose.position.y    = node_pose.first.y();
-//     node_marker_msg.pose.position.z    = node_pose.first.z();
-//     node_marker_msg.pose.orientation.w = node_pose.second.w();
-//     node_marker_msg.pose.orientation.x = node_pose.second.x();
-//     node_marker_msg.pose.orientation.y = node_pose.second.y();
-//     node_marker_msg.pose.orientation.z = node_pose.second.z();
-//     node_marker_msg.scale.x            = 0.5;
-//     node_marker_msg.scale.y            = 0.05;
-//     node_marker_msg.scale.z            = 0.05;
-//     node_marker_msg.color.g            = 1.0;
-//     node_marker_msg.color.a            = 1.0;
-//     nodes_markers_msg.markers.emplace_back(node_marker_msg);
-//   }
-//   return nodes_markers_msg;
-// }
-
-// visualization_msgs::msg::MarkerArray SemanticSlam::generateObjNodesMsg() {
-//   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> odom_nodes_poses =
-//       optimizer_ptr_->getNodePoses(optimizer_ptr_->temp_graph, "obj");
-//   visualization_msgs::msg::MarkerArray nodes_markers_msg;
-//   // std::cout << "REFERENCE FRAME :" << reference_frame_ << std::endl;
-//   // nodes_markers_msg.header.frame_id = reference_frame_;
-//   int counter = 0;
-//   for (auto node_pose : odom_nodes_poses) {
-//     visualization_msgs::msg::Marker node_marker_msg;
-//     node_marker_msg.type = node_marker_msg.ARROW;
-//     node_marker_msg.id   = counter;
-//     counter++;
-//     node_marker_msg.header.frame_id    = reference_frame_;
-//     node_marker_msg.pose.position.x    = node_pose.first.x();
-//     node_marker_msg.pose.position.y    = node_pose.first.y();
-//     node_marker_msg.pose.position.z    = node_pose.first.z();
-//     node_marker_msg.pose.orientation.w = node_pose.second.w();
-//     node_marker_msg.pose.orientation.x = node_pose.second.x();
-//     node_marker_msg.pose.orientation.y = node_pose.second.y();
-//     node_marker_msg.pose.orientation.z = node_pose.second.z();
-//     node_marker_msg.scale.x            = 0.5;
-//     node_marker_msg.scale.y            = 0.05;
-//     node_marker_msg.scale.z            = 0.05;
-//     node_marker_msg.color.r            = 1.0;
-//     node_marker_msg.color.a            = 1.0;
-//     nodes_markers_msg.markers.emplace_back(node_marker_msg);
-//   }
-//   return nodes_markers_msg;
-// }
 
 visualization_msgs::msg::MarkerArray SemanticSlam::generateNodesMsg(
     std::shared_ptr<GraphG2O>& _graph,
@@ -361,56 +265,13 @@ nav_msgs::msg::Path SemanticSlam::generateGraphMsg(
   return graph_msg;
 }
 
-// std::pair<Eigen::Vector3d, Eigen::Quaterniond> SemanticSlam::transformPose(
-//     const std::pair<Eigen::Vector3d, Eigen::Quaterniond>& pose,
-//     const std::string _reference_frame) {
-//   geometry_msgs::msg::TransformStamped ref_frame_transform;
-//   try {
-//     std::cout << "Transformation between " << reference_frame_ << " and " << ref_frame <<
-//     std::endl; ref_frame_transform =
-//         tf_buffer_->lookupTransform(reference_frame_, ref_frame, target_ts, tf_timeout);
-//     geometry_msgs::msg::PoseStamped transformed_pose;
-//     tf2::doTransform(msg->pose, transformed_pose, ref_frame_transform);
-//     aruco_position.x()    = transformed_pose.pose.position.x;
-//     aruco_position.y()    = transformed_pose.pose.position.y;
-//     aruco_position.z()    = transformed_pose.pose.position.z;
-//     aruco_orientation.w() = transformed_pose.pose.orientation.w;
-//     aruco_orientation.x() = transformed_pose.pose.orientation.x;
-//     aruco_orientation.y() = transformed_pose.pose.orientation.y;
-//     aruco_orientation.z() = transformed_pose.pose.orientation.z;
-
-//   } catch (const tf2::TransformException& ex) {
-//     RCLCPP_INFO(this->get_logger(), "Could not transform %s to %s: %s", ref_frame.c_str(),
-//                 reference_frame_.c_str(), ex.what());
-//     return;
-//   }
-// }
-
-void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg) {
-  // RCLCPP_INFO(this->get_logger(), "Aruco received: '%s'", msg->id.c_str());
-  Eigen::Vector3d aruco_position;
-  Eigen::Quaterniond aruco_orientation;
-  std::string aruco_id;
-  // static int counter = 0;
-  // counter += 1;
-  // if (counter < 10) {
-  //   return;  // NO ARUCO DETECTION
-  // }
-  // counter = 0;
-
-  // DEBUG
-  // std::cout << "P__: " << msg->pose.pose.position.x << " " << msg->pose.pose.position.y << "
-  // "
-  //           << msg->pose.pose.position.z << std::endl;
-  // std::cout << "O__: " << msg->pose.pose.orientation.w << " " << msg->pose.pose.orientation.x
-  // << " "
-  //           << msg->pose.pose.orientation.y << " " << msg->pose.pose.orientation.z <<
-  //           std::endl;
-
-  aruco_id              = msg->id;
-  std::string ref_frame = msg->pose.header.frame_id;
-
-  auto target_ts = tf2::TimePointZero;
+void SemanticSlam::getPoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg,
+                                  Eigen::Vector3d& _position,
+                                  Eigen::Quaterniond& _orientation) {
+  // Eigen::Vector3d aruco_position;
+  // Eigen::Quaterniond aruco_orientation;
+  std::string ref_frame = _msg->pose.header.frame_id;
+  auto target_ts        = tf2::TimePointZero;
   // auto target_ts = msg->pose.header.stamp;
   std::chrono::nanoseconds tf_timeout =
       std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0));
@@ -435,14 +296,14 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
       ref_frame_transform =
           tf_buffer_->lookupTransform(reference_frame_, ref_frame, target_ts, tf_timeout);
       geometry_msgs::msg::PoseStamped transformed_pose;
-      tf2::doTransform(msg->pose, transformed_pose, ref_frame_transform);
-      aruco_position.x()    = transformed_pose.pose.position.x;
-      aruco_position.y()    = transformed_pose.pose.position.y;
-      aruco_position.z()    = transformed_pose.pose.position.z;
-      aruco_orientation.w() = transformed_pose.pose.orientation.w;
-      aruco_orientation.x() = transformed_pose.pose.orientation.x;
-      aruco_orientation.y() = transformed_pose.pose.orientation.y;
-      aruco_orientation.z() = transformed_pose.pose.orientation.z;
+      tf2::doTransform(_msg->pose, transformed_pose, ref_frame_transform);
+      _position.x()    = transformed_pose.pose.position.x;
+      _position.y()    = transformed_pose.pose.position.y;
+      _position.z()    = transformed_pose.pose.position.z;
+      _orientation.w() = transformed_pose.pose.orientation.w;
+      _orientation.x() = transformed_pose.pose.orientation.x;
+      _orientation.y() = transformed_pose.pose.orientation.y;
+      _orientation.z() = transformed_pose.pose.orientation.z;
 
     } catch (const tf2::TransformException& ex) {
       RCLCPP_INFO(this->get_logger(), "Could not transform %s to %s: %s", ref_frame.c_str(),
@@ -450,30 +311,35 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
       return;
     }
   } else {
-    aruco_position.x()    = msg->pose.pose.position.x;
-    aruco_position.y()    = msg->pose.pose.position.y;
-    aruco_position.z()    = msg->pose.pose.position.z;
-    aruco_orientation.w() = msg->pose.pose.orientation.w;
-    aruco_orientation.x() = msg->pose.pose.orientation.x;
-    aruco_orientation.y() = msg->pose.pose.orientation.y;
-    aruco_orientation.z() = msg->pose.pose.orientation.z;
+    _position.x()    = _msg->pose.pose.position.x;
+    _position.y()    = _msg->pose.pose.position.y;
+    _position.z()    = _msg->pose.pose.position.z;
+    _orientation.w() = _msg->pose.pose.orientation.w;
+    _orientation.x() = _msg->pose.pose.orientation.x;
+    _orientation.y() = _msg->pose.pose.orientation.y;
+    _orientation.z() = _msg->pose.pose.orientation.z;
   }
+}
 
-  // std::cout << "PPP: " << aruco_position << std::endl;
-  // std::cout << "OOO: " << aruco_orientation << std::endl;
+void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg) {
+  // RCLCPP_INFO(this->get_logger(), "Aruco received: '%s'", msg->id.c_str());
+  // std::string aruco_id;
 
-  // Covariance
-  // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
-  //     msg->pose.covariance.data());
+  std::string aruco_id = msg->id;
+  Eigen::Vector3d aruco_position;
+  Eigen::Quaterniond aruco_orientation;
+
+  getPoseFromMsg(msg, aruco_position, aruco_orientation);
 
   // TODO: Define how to use this
   // msg->pose.header.frame_id;
   // msg->pose.header.stamp;
-  // std::cout << "ARUCO: add last odom" << std::endl;
-  // Eigen::Matrix<double, 6, 6>(),
-  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
 
-  // std::cout << "ARUCO: object detected" << std::endl;
+  // Covariance
+  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 10.0;
+  // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
+  //     msg->pose.covariance.data());
+
   optimizer_ptr_->handleNewObject(aruco_id, aruco_position, aruco_orientation, aruco_covariance,
                                   last_odom_abs_position_received_,
                                   last_odom_abs_orientation_received_,
@@ -482,6 +348,9 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
 }
 
 void SemanticSlam::visualizeMainGraph() {
+  // std::vector<std::array<double, 7>> graph = optimizer_ptr_->main_graph->getGraph();
+  // nav_msgs::msg::Path graph_msg            = generateGraphMsg(graph);
+  // graph_pub_->publish(graph_msg);
   // VISUALIZATION MSGS
   std::array<float, 3> odom_node_color{0.0, 0.0, 1.0};
   std::array<float, 3> obj_node_color{1.0, 0.0, 0.0};
@@ -519,7 +388,7 @@ void SemanticSlam::visualizeTempGraph() {
 }
 
 void SemanticSlam::visualizeCleanTempGraph() {
-  WARN("Cleaning Temp Graph Visualization");
+  // WARN("Cleaning Temp Graph Visualization");
   visualization_msgs::msg::MarkerArray viz_clean_markers_msg = generateCleanMarkersMsg();
   viz_temp_odom_nodes_pub_->publish(viz_clean_markers_msg);
   viz_temp_obj_nodes_pub_->publish(viz_clean_markers_msg);
@@ -561,21 +430,6 @@ OptimizerG2O::OptimizerG2O() {
   main_graph->initGraph();
 }
 
-// std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> OptimizerG2O::getOdomNodePoses() {
-//   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> odom_nodes;
-//   // std::cout << "ODOM_NODES_SIZE: " << odom_nodes_.size() << std::endl;
-//   odom_nodes.reserve(main_graph->odom_nodes_.size());
-
-//   for (auto node : main_graph->odom_nodes_) {
-//     std::pair<Eigen::Vector3d, Eigen::Quaterniond> node_pose;
-//     if (getNodePose(node, node_pose)) {
-//       odom_nodes.emplace_back(node_pose);
-//     } else
-//       ERROR("CAN'T CONVERT VERTEX TO SE3");
-//   }
-//   return odom_nodes;
-// }
-
 std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>>
 OptimizerG2O::getEdgesLines(std::shared_ptr<GraphG2O>& _graph) {
   std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> edge_poses;
@@ -593,10 +447,6 @@ OptimizerG2O::getEdgesLines(std::shared_ptr<GraphG2O>& _graph) {
       } else
         ERROR("CAN'T CONVERT VERTEX TO SE3");
     }
-
-    // std::cout << node_poses[0].first.transpose() << " - " << node_poses[1].first.transpose()
-    //           << std::endl;
-
     edge_poses.emplace_back(node_poses);
   }
 
@@ -658,9 +508,6 @@ bool OptimizerG2O::handleNewOdom(const Eigen::Vector3d& _odom_position,
       return false;
     }
   }
-
-  // TODO: Check to do this inside the next function
-  // main_graph->last_node_pose_ = absolute_odom_pose;
 
   main_graph->addNewKeyframe(absolute_odom_pose, relative_odom_pose, _odom_covariance);
 
@@ -833,7 +680,8 @@ void GraphG2O::optimizeGraph() {
     ERROR("GRAPH RETURNED A NAN WAITING AFTER OPTIMIZATION");
   }
   // std::cout << "Start optimization" << std::endl;
-  int iterations = graph_->optimize(num_iterations);
+  graph_->optimize(num_iterations);
+  // int iterations = graph_->optimize(num_iterations);
   FLAG("Optimization done");
   // std::cout << "iterations: " << iterations << " / " << num_iterations << std::endl;
   // std::cout << "chi2: (before)" << chi2 << " -> (after)" << graph->chi2() << std::endl;
@@ -880,7 +728,8 @@ void GraphG2O::addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
   auto [node, id] = addSE3Node(_absolute_pose);
   odom_nodes_.emplace_back(node);
 
-  addSE3Edge(last_node_, node, _relative_pose, _relative_covariance);
+  Eigen::MatrixXd information_matrix = _relative_covariance.inverse();
+  addSE3Edge(last_node_, node, _relative_pose, information_matrix);
   last_node_      = node;
   last_node_pose_ = _absolute_pose;
 }
@@ -916,7 +765,7 @@ void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
                                     const Eigen::Isometry3d& _obj_absolute_pose,
                                     const Eigen::Isometry3d& _obj_relative_pose,
                                     const Eigen::MatrixXd& _obj_covariance) {
-  Eigen::Isometry3d node_pose = Eigen::Isometry3d::Identity();
+  // Eigen::Isometry3d node_pose = Eigen::Isometry3d::Identity();
 
   g2o::VertexSE3* object_node;
   int obj_node_id = obj_id2node_[_obj_id];
@@ -938,7 +787,8 @@ void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
     object_node = dynamic_cast<g2o::VertexSE3*>(graph_->vertex(obj_node_id));
   }
 
-  addSE3Edge(last_node_, object_node, _obj_relative_pose, _obj_covariance);
+  Eigen::MatrixXd information_matrix = _obj_covariance.inverse();
+  addSE3Edge(last_node_, object_node, _obj_relative_pose, information_matrix);
   // INFO("Added new edge to object");
 }
 
@@ -946,7 +796,6 @@ std::vector<ObjectNodeInfo> GraphG2O::getObjectNodes() { return obj_nodes_info_;
 
 ObjectNodeInfo::ObjectNodeInfo(const std::string _id,
                                g2o::HyperGraph::Vertex* _node,
-                               // g2o::VertexSE3* _node,
                                const Eigen::MatrixXd& _covariance) {
   object_id  = _id;
   node       = _node;
