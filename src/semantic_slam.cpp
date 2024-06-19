@@ -35,37 +35,25 @@
  ********************************************************************************/
 
 #include "as2_slam/semantic_slam.hpp"
-#include <Eigen/src/Core/Matrix.h>
-#include <Eigen/src/Geometry/Quaternion.h>
-#include <Eigen/src/Geometry/Transform.h>
-#include <Eigen/src/Geometry/Translation.h>
-#include <g2o/core/hyper_graph.h>
-#include <g2o/core/sparse_optimizer.h>
-#include <g2o/types/slam3d/vertex_se3.h>
-#include <tf2/LinearMath/Transform.h>
-#include <tf2/convert.h>
-#include <tf2/exceptions.h>
-#include <tf2/time.h>
+
+#include "as2_core/names/topics.hpp"
+#include "as2_core/utils/frame_utils.hpp"
+#include "as2_core/utils/tf_utils.hpp"
+
 #include <array>
-#include <as2_core/names/topics.hpp>
-#include <as2_msgs/msg/detail/pose_stamped_with_id__struct.hpp>
-#include <geometry_msgs/msg/detail/pose_stamped__struct.hpp>
-#include <geometry_msgs/msg/detail/transform_stamped__struct.hpp>
 #include <memory>
-#include <nav_msgs/msg/detail/path__struct.hpp>
-#include <rclcpp/duration.hpp>
-#include <string>
-#include <vector>
-#include <visualization_msgs/msg/detail/marker__struct.hpp>
-#include <visualization_msgs/msg/detail/marker_array__struct.hpp>
-#include "tf2_ros/buffer.h"
-#include "tf2_ros/transform_listener.h"
+// #include <filesystem>
+// #include <pluginlib/class_loader.hpp>
+// #include "plugin_base.hpp"
 
 SemanticSlam::SemanticSlam() : as2::Node("semantic_slam") {
   std::string default_odom_topic       = "cf0/sensor_measurements/noisy_odom";
   std::string default_aruco_pose_topic = "cf0/detect_aruco_markers_behavior/aruco_pose";
   std::string default_reference_frame  = "cf0/odom";
   std::string default_robot_frame      = "cf0/base_link";
+
+  std::string default_viz_main_markers_topic = "slam_viz/markers/main";
+  std::string default_viz_temp_markers_topic = "slam_viz/markers/temp";
 
   std::string default_viz_main_graph_topic      = "cf0/semantic_slam/graph";
   std::string default_viz_main_odom_nodes_topic = "slam_viz/main/odom_nodes";
@@ -75,10 +63,12 @@ SemanticSlam::SemanticSlam() : as2::Node("semantic_slam") {
   std::string default_viz_main_edges_topic      = "slam_viz/main/edges";
   std::string default_viz_temp_edges_topic      = "slam_viz/temp/edges";
 
-  std::shared_ptr<const rclcpp::QoS> reliable_qos =
-      std::make_shared<const rclcpp::QoS>(rclcpp::QoS(2));
-  std::shared_ptr<const rclcpp::QoS> sensor_qos =
-      std::make_shared<const rclcpp::QoS>(rclcpp::SensorDataQoS());
+  // std::shared_ptr<const rclcpp::QoS> reliable_qos =
+  //     std::make_shared<const rclcpp::QoS>(rclcpp::QoS(2));
+  // std::shared_ptr<const rclcpp::QoS> sensor_qos =
+  //     std::make_shared<const rclcpp::QoS>(rclcpp::SensorDataQoS());
+  rclcpp::QoS reliable_qos = rclcpp::QoS(10);
+  rclcpp::QoS sensor_qos   = rclcpp::SensorDataQoS();
 
   // PARAMETERS
   std::string odom_topic = this->declare_parameter("odom_topic", default_odom_topic);
@@ -88,44 +78,24 @@ SemanticSlam::SemanticSlam() : as2::Node("semantic_slam") {
       this->declare_parameter<std::string>("reference_frame", default_reference_frame);
   robot_frame_ = this->declare_parameter<std::string>("robot_frame", default_robot_frame);
   // VISUALIZATION
-  std::string viz_main_graph_topic =
-      this->declare_parameter("graph_topic", default_viz_main_graph_topic);
-  std::string viz_main_odom_nodes_topic =
-      this->declare_parameter("viz_main_odom_nodes_topic", default_viz_main_odom_nodes_topic);
-  std::string viz_temp_odom_nodes_topic =
-      this->declare_parameter("viz_temp_odom_nodes_topic", default_viz_temp_odom_nodes_topic);
-  std::string viz_main_obj_nodes_topic =
-      this->declare_parameter("viz_main_obj_nodes_topic", default_viz_main_obj_nodes_topic);
-  std::string viz_temp_obj_nodes_topic =
-      this->declare_parameter("viz_temp_obj_nodes_topic", default_viz_temp_obj_nodes_topic);
-  std::string viz_main_edges_topic =
-      this->declare_parameter("viz_main_edges_topic", default_viz_main_edges_topic);
-  std::string viz_temp_edges_topic =
-      this->declare_parameter("viz_temp_edges_topic", default_viz_temp_edges_topic);
+  std::string viz_main_markers_topic =
+      this->declare_parameter("viz_main_markers_topic", default_viz_main_markers_topic);
+  std::string viz_temp_markers_topic =
+      this->declare_parameter("viz_temp_markers_topic", default_viz_temp_markers_topic);
 
   odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-      odom_topic, *sensor_qos, std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
+      odom_topic, sensor_qos, std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
   aruco_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
-      aruco_pose_topic, *sensor_qos,
+      aruco_pose_topic, sensor_qos,
       std::bind(&SemanticSlam::arucoPoseCallback, this, std::placeholders::_1));
 
   tf_buffer_   = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  viz_main_graph_pub_ =
-      this->create_publisher<nav_msgs::msg::Path>(viz_main_graph_topic, *reliable_qos);
-  viz_main_odom_nodes_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      viz_main_odom_nodes_topic, *reliable_qos);
-  viz_temp_odom_nodes_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      viz_temp_odom_nodes_topic, *reliable_qos);
-  viz_main_obj_nodes_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      viz_main_obj_nodes_topic, *reliable_qos);
-  viz_temp_obj_nodes_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      viz_temp_obj_nodes_topic, *reliable_qos);
-  viz_main_edges_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      viz_main_edges_topic, *reliable_qos);
-  viz_temp_edges_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      viz_temp_edges_topic, *reliable_qos);
+  viz_main_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+      viz_main_markers_topic, reliable_qos);
+  viz_temp_markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+      viz_temp_markers_topic, reliable_qos);
 
   optimizer_ptr_ = std::make_unique<OptimizerG2O>();
 }
@@ -150,8 +120,6 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
   last_odom_abs_orientation_received_ = odom_orientation;
   last_odom_abs_covariance_received_  = odom_covariance;
 
-  // return;
-
   // TODO: Define how to use this
   // msg->header.frame_id;
   // msg->header.stamp;
@@ -168,7 +136,8 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
 visualization_msgs::msg::MarkerArray SemanticSlam::generateNodesMsg(
     std::shared_ptr<GraphG2O>& _graph,
-    std::string _mode,
+    const std::string& _namespace,
+    const std::string& _mode,
     const std::array<float, 3>& _color) {
   std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> odom_nodes_poses =
       optimizer_ptr_->getNodePoses(_graph, _mode);
@@ -179,6 +148,7 @@ visualization_msgs::msg::MarkerArray SemanticSlam::generateNodesMsg(
   for (auto node_pose : odom_nodes_poses) {
     visualization_msgs::msg::Marker node_marker_msg;
     node_marker_msg.type = node_marker_msg.ARROW;
+    node_marker_msg.ns   = _namespace;
     node_marker_msg.id   = counter;
     counter++;
     node_marker_msg.header.frame_id    = reference_frame_;
@@ -203,6 +173,7 @@ visualization_msgs::msg::MarkerArray SemanticSlam::generateNodesMsg(
 
 visualization_msgs::msg::MarkerArray SemanticSlam::generateEdgesMsg(
     std::shared_ptr<GraphG2O>& _graph,
+    const std::string& _namespace,
     const std::array<float, 3>& _color) {
   std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> edge_lines =
       optimizer_ptr_->getEdgesLines(_graph);
@@ -213,8 +184,9 @@ visualization_msgs::msg::MarkerArray SemanticSlam::generateEdgesMsg(
     visualization_msgs::msg::Marker edge_marker_msg;
     edge_marker_msg.type            = visualization_msgs::msg::Marker::LINE_STRIP;
     edge_marker_msg.header.frame_id = reference_frame_;
-    edge_marker_msg.id              = 0;
-    edge_marker_msg.id              = counter;
+    edge_marker_msg.ns              = _namespace;
+    // edge_marker_msg.id              = 0;
+    edge_marker_msg.id = counter;
     counter++;
     // edge_marker_msg.action          = visualization_msgs::msg::Marker::ADD;
     // Set the scale of the line (thickness)
@@ -241,28 +213,6 @@ visualization_msgs::msg::MarkerArray SemanticSlam::generateEdgesMsg(
     edges_markers_msg.markers.emplace_back(edge_marker_msg);
   }
   return edges_markers_msg;
-}
-
-nav_msgs::msg::Path SemanticSlam::generateGraphMsg(
-    const std::vector<std::array<double, 7>>& _graph) {
-  nav_msgs::msg::Path graph_msg;
-  // FIXME: Get the frame id
-  graph_msg.header.frame_id = reference_frame_;
-
-  for (auto pose : _graph) {
-    geometry_msgs::msg::PoseStamped pose_msg;
-    pose_msg.pose.position.x    = pose[0];
-    pose_msg.pose.position.y    = pose[1];
-    pose_msg.pose.position.z    = pose[2];
-    pose_msg.pose.orientation.w = pose[3];
-    pose_msg.pose.orientation.x = pose[4];
-    pose_msg.pose.orientation.y = pose[5];
-    pose_msg.pose.orientation.z = pose[6];
-
-    graph_msg.poses.emplace_back(pose_msg);
-  }
-
-  return graph_msg;
 }
 
 void SemanticSlam::getPoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg,
@@ -323,18 +273,15 @@ void SemanticSlam::getPoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStamp
 
 void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg) {
   // RCLCPP_INFO(this->get_logger(), "Aruco received: '%s'", msg->id.c_str());
-  // std::string aruco_id;
-
   std::string aruco_id = msg->id;
   Eigen::Vector3d aruco_position;
   Eigen::Quaterniond aruco_orientation;
-
-  getPoseFromMsg(msg, aruco_position, aruco_orientation);
 
   // TODO: Define how to use this
   // msg->pose.header.frame_id;
   // msg->pose.header.stamp;
 
+  getPoseFromMsg(msg, aruco_position, aruco_orientation);
   // Covariance
   Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 10.0;
   // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
@@ -348,22 +295,21 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
 }
 
 void SemanticSlam::visualizeMainGraph() {
-  // std::vector<std::array<double, 7>> graph = optimizer_ptr_->main_graph->getGraph();
-  // nav_msgs::msg::Path graph_msg            = generateGraphMsg(graph);
-  // graph_pub_->publish(graph_msg);
   // VISUALIZATION MSGS
   std::array<float, 3> odom_node_color{0.0, 0.0, 1.0};
   std::array<float, 3> obj_node_color{1.0, 0.0, 0.0};
   std::array<float, 3> edge_color{0.5, 0.5, 1.0};
-  visualization_msgs::msg::MarkerArray odom_nodes_msg =
-      generateNodesMsg(optimizer_ptr_->main_graph, "odom", odom_node_color);
-  viz_main_odom_nodes_pub_->publish(odom_nodes_msg);
-  visualization_msgs::msg::MarkerArray obj_nodes_msg =
-      generateNodesMsg(optimizer_ptr_->main_graph, "obj", obj_node_color);
-  viz_main_obj_nodes_pub_->publish(obj_nodes_msg);
-  visualization_msgs::msg::MarkerArray viz_main_edges_msg =
-      generateEdgesMsg(optimizer_ptr_->main_graph, edge_color);
-  viz_main_edges_pub_->publish(viz_main_edges_msg);
+  visualization_msgs::msg::MarkerArray viz_odom_nodes_msg =
+      generateNodesMsg(optimizer_ptr_->main_graph, "main/odom", "odom", odom_node_color);
+  viz_main_markers_pub_->publish(viz_odom_nodes_msg);
+
+  visualization_msgs::msg::MarkerArray viz_obj_nodes_msg =
+      generateNodesMsg(optimizer_ptr_->main_graph, "main/obj", "obj", obj_node_color);
+  viz_main_markers_pub_->publish(viz_obj_nodes_msg);
+
+  visualization_msgs::msg::MarkerArray viz_edges_msg =
+      generateEdgesMsg(optimizer_ptr_->main_graph, "main/edges", edge_color);
+  viz_main_markers_pub_->publish(viz_edges_msg);
 }
 
 void SemanticSlam::visualizeTempGraph() {
@@ -371,433 +317,55 @@ void SemanticSlam::visualizeTempGraph() {
   std::array<float, 3> odom_node_color{0.0, 1.0, 0.0};
   std::array<float, 3> obj_node_color{1.0, 1.0, 0.5};
   std::array<float, 3> edge_color{5.0, 1.0, 0.5};
+
   visualization_msgs::msg::MarkerArray viz_odom_nodes_msg =
-      generateNodesMsg(optimizer_ptr_->temp_graph, "odom", odom_node_color);
-  // INFO("Viz Temp Odom: " << viz_odom_nodes_msg.markers.size());
-  viz_temp_odom_nodes_pub_->publish(viz_odom_nodes_msg);
+      generateNodesMsg(optimizer_ptr_->temp_graph, "temp/odom", "odom", odom_node_color);
+  viz_temp_markers_pub_->publish(viz_odom_nodes_msg);
 
   visualization_msgs::msg::MarkerArray viz_obj_nodes_msg =
-      generateNodesMsg(optimizer_ptr_->temp_graph, "obj", obj_node_color);
-  // INFO("Viz Temp Objects: " << viz_obj_nodes_msg.markers.size());
-  viz_temp_obj_nodes_pub_->publish(viz_obj_nodes_msg);
+      generateNodesMsg(optimizer_ptr_->temp_graph, "temp/obj", "obj", obj_node_color);
+  viz_temp_markers_pub_->publish(viz_obj_nodes_msg);
 
-  visualization_msgs::msg::MarkerArray viz_temp_edges_msg =
-      generateEdgesMsg(optimizer_ptr_->temp_graph, edge_color);
-  // INFO("Viz Temp Edges: " << viz_temp_edges_msg.markers.size());
-  viz_temp_edges_pub_->publish(viz_temp_edges_msg);
+  visualization_msgs::msg::MarkerArray viz_edges_msg =
+      generateEdgesMsg(optimizer_ptr_->temp_graph, "temp/edges", edge_color);
+  viz_temp_markers_pub_->publish(viz_edges_msg);
 }
 
 void SemanticSlam::visualizeCleanTempGraph() {
   // WARN("Cleaning Temp Graph Visualization");
-  visualization_msgs::msg::MarkerArray viz_clean_markers_msg = generateCleanMarkersMsg();
-  viz_temp_odom_nodes_pub_->publish(viz_clean_markers_msg);
-  viz_temp_obj_nodes_pub_->publish(viz_clean_markers_msg);
-  viz_temp_edges_pub_->publish(viz_clean_markers_msg);
+  visualization_msgs::msg::MarkerArray viz_clean_markers_msg = generateCleanMarkersMsg("temp/odom");
+  viz_temp_markers_pub_->publish(viz_clean_markers_msg);
 }
 
-visualization_msgs::msg::MarkerArray SemanticSlam::generateCleanMarkersMsg() {
+visualization_msgs::msg::MarkerArray SemanticSlam::generateCleanMarkersMsg(
+    const std::string& _namespace) {
   visualization_msgs::msg::MarkerArray markers_msg;
   visualization_msgs::msg::Marker marker_msg;
-  // node_marker_msg.type               = node_marker_msg.ARROW;
+  // marker_msg.ns     = _namespace;
   marker_msg.id     = 0;
   marker_msg.action = visualization_msgs::msg::Marker::DELETEALL;
   markers_msg.markers.emplace_back(marker_msg);
   return markers_msg;
 }
 
-//*********************************************************************************************//
-//*********************************************************************************************//
-//*********************************************************************************************//
+// nav_msgs::msg::Path SemanticSlam::generateGraphMsg(
+//     const std::vector<std::array<double, 7>>& _graph) {
+//   nav_msgs::msg::Path graph_msg;
+//   // FIXME: Get the frame id
+//   graph_msg.header.frame_id = reference_frame_;
 
-G2O_USE_OPTIMIZATION_LIBRARY(pcg)
-G2O_USE_OPTIMIZATION_LIBRARY(cholmod)
-G2O_USE_OPTIMIZATION_LIBRARY(csparse)
+//   for (auto pose : _graph) {
+//     geometry_msgs::msg::PoseStamped pose_msg;
+//     pose_msg.pose.position.x    = pose[0];
+//     pose_msg.pose.position.y    = pose[1];
+//     pose_msg.pose.position.z    = pose[2];
+//     pose_msg.pose.orientation.w = pose[3];
+//     pose_msg.pose.orientation.x = pose[4];
+//     pose_msg.pose.orientation.y = pose[5];
+//     pose_msg.pose.orientation.z = pose[6];
 
-OptimizerG2O::OptimizerG2O() {
-  FLAG("STARTING SEMANTIC SLAM");
+//     graph_msg.poses.emplace_back(pose_msg);
+//   }
 
-  // FLAG("Create Main Graph");
-  main_graph = std::make_shared<GraphG2O>("Main graph");
-  // FLAG("Create Temp Graph");
-  temp_graph = std::make_shared<GraphG2O>("Temp graph");
-
-  if (odometry_is_relative_) {
-    WARN("Relative odometry");
-  } else {
-    WARN("Absolute odometry");
-  }
-
-  main_graph->initGraph();
-}
-
-std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>>
-OptimizerG2O::getEdgesLines(std::shared_ptr<GraphG2O>& _graph) {
-  std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> edge_poses;
-
-  auto edges = _graph->graph_->edges();
-
-  for (auto edge : edges) {
-    auto vertices = edge->vertices();
-    std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> node_poses;
-    for (auto vertex : vertices) {
-      // std::cout << "ID: " << vertex->id() << std::endl;
-      std::pair<Eigen::Vector3d, Eigen::Quaterniond> node_pose;
-      if (getNodePose(vertex, node_pose)) {
-        node_poses.emplace_back(node_pose);
-      } else
-        ERROR("CAN'T CONVERT VERTEX TO SE3");
-    }
-    edge_poses.emplace_back(node_poses);
-  }
-
-  return edge_poses;
-}
-
-std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> OptimizerG2O::getNodePoses(
-    std::shared_ptr<GraphG2O>& _graph,
-    const std::string _mode) {
-  std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>> node_poses;
-  std::vector<g2o::HyperGraph::Vertex*>* nodes;
-  if (_mode == "odom")
-    nodes = &_graph->odom_nodes_;
-  else if (_mode == "obj")
-    nodes = &_graph->obj_nodes_;
-  else {
-    std::cerr << "GetObj:Mode not recognized" << std::endl;
-    return node_poses;
-  }
-  // std::cout << "OBJ_NODES_SIZE: " << nodes->size() << std::endl;
-  node_poses.reserve(nodes->size());
-
-  for (auto node : *nodes) {
-    std::pair<Eigen::Vector3d, Eigen::Quaterniond> node_pose;
-    if (getNodePose(node, node_pose)) {
-      node_poses.emplace_back(node_pose);
-    } else
-      ERROR("CAN'T CONVERT VERTEX TO SE3");
-  }
-  return node_poses;
-}
-
-bool OptimizerG2O::handleNewOdom(const Eigen::Vector3d& _odom_position,
-                                 const Eigen::Quaterniond& _odom_orientation,
-                                 const Eigen::MatrixXd& _odom_covariance) {
-  Eigen::Isometry3d absolute_odom_pose;
-  Eigen::Isometry3d relative_odom_pose;
-  // Eigen::Isometry3d odom_pose = Eigen::Translation3d(_odom_position) * _odom_orientation;
-  if (odometry_is_relative_) {
-    // TODO RELATIVE ODOMETRY
-    // relative_pose = odom_pose;
-    ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
-  } else {
-    // ABSOLUTE ODOMETRY
-    absolute_odom_pose = Eigen::Translation3d(_odom_position) * _odom_orientation;
-    relative_odom_pose = main_graph->last_node_pose_.inverse() * absolute_odom_pose;
-  }
-  // TODO: check time from the last odometry received
-
-  // check distance from the last odometry received
-  double translation_distance_from_last_node = relative_odom_pose.translation().norm();
-  double rotation_distance_from_last_node =
-      relative_odom_pose.rotation().norm();  // FIXME: get rotation distance
-
-  if (translation_distance_from_last_node < odometry_distance_threshold_) {
-    if (rotation_distance_from_last_node < odometry_orientation_threshold_) {
-      // Pose distance is not enough to create a new node
-      // std::cout << "New odometry distance is not enough" << std::endl;
-      return false;
-    }
-  }
-
-  main_graph->addNewKeyframe(absolute_odom_pose, relative_odom_pose, _odom_covariance);
-
-  if (temp_graph_generated) {
-    for (auto obj_node_info : temp_graph->getObjectNodes()) {
-      std::pair<Eigen::Vector3d, Eigen::Quaterniond> obj_node_pose;
-      if (getNodePose(obj_node_info.node, obj_node_pose)) {
-        // TODO: IS THIS THE RIGHT WAY?
-        Eigen::Isometry3d absolute_obj_pose =
-            Eigen::Translation3d(obj_node_pose.first) * obj_node_pose.second;
-        Eigen::Isometry3d relative_obj_pose = absolute_odom_pose.inverse() * absolute_obj_pose;
-        // Eigen::Matrix<double, 6, 6> obj_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
-        main_graph->addNewObjectKeyframe(obj_node_info.object_id, absolute_obj_pose,
-                                         relative_obj_pose, obj_node_info.covariance);
-      } else
-        ERROR("CAN'T CONVERT OBJECT VERTEX TO SE3");
-    }
-    // TODO: RESET TEMP_GRAPH
-    FLAG("RESET TEMP GRAPH");
-    auto sharing = temp_graph.use_count();
-    if (sharing > 1) DEBUG("Temp graph Shared: " << sharing);
-    temp_graph.reset();
-    temp_graph           = std::make_shared<GraphG2O>("Temp Graph");
-    temp_graph_generated = false;
-  }
-
-  // TODO: Choose when to optimize: either every time a new keyframe is added, or every certain
-  // period of time
-  main_graph->optimizeGraph();
-
-  // DEBUG
-  // for (auto p : main_graph->graph_->vertices()) {
-  //   // for (pair[ int id, VertexSE3 node ] : graph->vertices()) {
-  //   int id    = p.first;
-  //   auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
-  //   if (node) {
-  //     auto T = node->estimate().translation().transpose();
-  //     std::cout << "NODE " << id << " : " << T << std::endl;
-  //   }
-  //   // else { Node is not VertexSE3 }
-  // }
-  //
-  return true;
-}
-
-void OptimizerG2O::handleNewObject(const std::string _obj_id,
-                                   const Eigen::Vector3d& _obj_position,
-                                   const Eigen::Quaterniond& _obj_orientation,
-                                   const Eigen::MatrixXd& _obj_covariance,
-                                   const Eigen::Vector3d& _odom_position,
-                                   const Eigen::Quaterniond& _odom_orientation,
-                                   const Eigen::MatrixXd& _odom_covariance) {
-  Eigen::Isometry3d absolute_odom_pose;
-  Eigen::Isometry3d relative_odom_pose;
-  if (odometry_is_relative_) {
-    ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
-    return;
-  } else {
-    // ABSOLUTE ODOMETRY
-    absolute_odom_pose = Eigen::Translation3d(_odom_position) * _odom_orientation;
-    relative_odom_pose = temp_graph->last_node_pose_.inverse() * absolute_odom_pose;
-  }
-
-  if (!temp_graph_generated) {
-    // DEBUG("**** Adding initial ODOM keyframe from Object detection ****");
-    temp_graph->initGraph(_odom_position, _odom_orientation);
-    temp_graph_generated = true;
-    // return;
-  } else {
-    // check distance from the last odometry received
-    double translation_distance_from_last_node = relative_odom_pose.translation().norm();
-
-    if (translation_distance_from_last_node < obj_odometry_distance_threshold_) {
-      // std::cout << "New odometry distance is not enough" << std::endl;
-      return;
-    }
-
-    // DEBUG("**** Adding new ODOM keyframe from Object detection ****");
-    temp_graph->addNewKeyframe(absolute_odom_pose, relative_odom_pose, _odom_covariance);
-  }
-
-  // DEBUG
-  // for (auto p : temp_graph->graph_->vertices()) {
-  //   // for (pair[ int id, VertexSE3 node ] : graph->vertices()) {
-  //   int id    = p.first;
-  //   auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
-  //   if (node) {
-  //     auto T = node->estimate().translation().transpose();
-  //     INFO("NODE " << id << " : " << T);
-  //   }
-  //   // else { Node is not VertexSE3 }
-  // }
-
-  // DEBUG("**** Added new OBJECT keyframe ****");
-  // TODO: CURRENT OBJECT POSITION IS ABSOLUTE. SHOULD OBJECT POSITION BE RELATIVE?
-  Eigen::Isometry3d absolute_obj_pose = Eigen::Translation3d(_obj_position) * _obj_orientation;
-  Eigen::Isometry3d relative_obj_pose = absolute_odom_pose.inverse() * absolute_obj_pose;
-  temp_graph->addNewObjectKeyframe(_obj_id, absolute_obj_pose, relative_obj_pose, _obj_covariance);
-
-  temp_graph->optimizeGraph();
-}
-
-bool OptimizerG2O::getNodePose(g2o::HyperGraph::Vertex* _node,
-                               std::pair<Eigen::Vector3d, Eigen::Quaterniond>& _node_pose) {
-  g2o::VertexSE3* node_se3 = dynamic_cast<g2o::VertexSE3*>(_node);
-  if (!node_se3) {
-    return false;
-  }
-
-  _node_pose.first  = node_se3->estimate().translation();
-  _node_pose.second = Eigen::Quaterniond(node_se3->estimate().rotation());
-
-  return true;
-}
-
-//*********************************************************************************************//
-//*********************************************************************************************//
-//*********************************************************************************************//
-
-GraphG2O::GraphG2O(std::string _name) {
-  name_ = _name;
-  FLAG("Create " << name_);
-
-  graph_                  = std::make_shared<g2o::SparseOptimizer>();  // g2o graph
-  std::string solver_type = "lm_var_cholmod";                          // Check list of solver types
-  INFO("construct solver: " << solver_type);
-  g2o::OptimizationAlgorithmFactory* solver_factory = g2o::OptimizationAlgorithmFactory::instance();
-  g2o::OptimizationAlgorithmProperty solver_property;
-  g2o::OptimizationAlgorithm* solver = solver_factory->construct(solver_type, solver_property);
-  graph_->setAlgorithm(solver);
-
-  if (!graph_->solver()) {
-    std::cerr << std::endl;
-    std::cerr << "error : failed to allocate main solver!!" << std::endl;
-    solver_factory->listSolvers(std::cerr);
-    std::cerr << "-------------" << std::endl;
-    std::cin.ignore(1);
-    return;
-  }
-}
-
-void GraphG2O::initGraph(const Eigen::Vector3d& initial_position,
-                         const Eigen::Quaterniond& initial_orientation) {
-  // this position will help the optimizer to find the correct solution ( its like the
-  // prior )
-  // Initial_pose is set to (0,0,0) by default
-  Eigen::Isometry3d node_pose = Eigen::Translation3d(initial_position) * initial_orientation;
-  // auto [ground, id]           = addSE3Node(Eigen::Isometry3d::Identity());
-  auto [ground, id] = addSE3Node(node_pose);
-  odom_nodes_.emplace_back(ground);
-  ground->setFixed(true);
-  last_node_      = ground;
-  last_node_pose_ = node_pose;
-}
-
-void GraphG2O::optimizeGraph() {
-  // g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(graph_ptr_.get());
-  const int num_iterations = 100;
-
-  // std::cout << std::endl;
-  INFO("--- pose " << name_ << " optimization ---");
-  INFO("nodes: " << graph_->vertices().size() << "   edges: " << graph_->edges().size());
-  // std::cout << "optimizing... " << std::flush;
-  // std::cout << "init" << std::endl;
-  graph_->initializeOptimization();
-  graph_->setVerbose(false);
-
-  double chi2 = graph_->chi2();
-  if (std::isnan(chi2)) {
-    ERROR("GRAPH RETURNED A NAN WAITING AFTER OPTIMIZATION");
-  }
-  // std::cout << "Start optimization" << std::endl;
-  graph_->optimize(num_iterations);
-  // int iterations = graph_->optimize(num_iterations);
-  FLAG("Optimization done");
-  // std::cout << "iterations: " << iterations << " / " << num_iterations << std::endl;
-  // std::cout << "chi2: (before)" << chi2 << " -> (after)" << graph->chi2() << std::endl;
-  if (std::isnan(graph_->chi2())) {
-    throw std::invalid_argument("GRAPH RETURNED A NAN...STOPPING THE EXPERIMENT");
-  }
-}
-
-std::pair<g2o::VertexSE3*, int> GraphG2O::addSE3Node(const Eigen::Isometry3d& _pose) {
-  g2o::VertexSE3* vertex(new g2o::VertexSE3());
-  auto id = n_vertices_++;
-  vertex->setId(static_cast<int>(id));
-  vertex->setEstimate(_pose);
-  if (!graph_->addVertex(vertex)) {
-    WARN("Vertex not added");
-  }
-  return {vertex, id};
-}
-
-g2o::EdgeSE3* GraphG2O::addSE3Edge(g2o::VertexSE3* _v1,
-                                   g2o::VertexSE3* _v2,
-                                   const Eigen::Isometry3d& _relative_pose,
-                                   const Eigen::MatrixXd& _information_matrix) {
-  // Check Information Matrix
-  // DEBUG("information_matrix");
-  // DEBUG(_information_matrix);
-
-  g2o::EdgeSE3* edge(new g2o::EdgeSE3());
-  edge->setId(static_cast<int>(n_edges_++));
-  edge->setMeasurement(_relative_pose);
-  edge->setInformation(_information_matrix);
-  edge->vertices()[0] = _v1;
-  edge->vertices()[1] = _v2;
-  if (!graph_->addEdge(edge)) {
-    WARN("Edge not added");
-  }
-  return edge;
-}
-
-void GraphG2O::addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
-                              const Eigen::Isometry3d& _relative_pose,
-                              const Eigen::MatrixXd& _relative_covariance) {
-  // std::cout << "*** NEW KEY FRAME ***" << std::endl;
-  auto [node, id] = addSE3Node(_absolute_pose);
-  odom_nodes_.emplace_back(node);
-
-  Eigen::MatrixXd information_matrix = _relative_covariance.inverse();
-  addSE3Edge(last_node_, node, _relative_pose, information_matrix);
-  last_node_      = node;
-  last_node_pose_ = _absolute_pose;
-}
-
-std::vector<std::array<double, 7>> GraphG2O::getGraph() {
-  std::vector<std::array<double, 7>> pose_graph;
-  // Get number of nodes of the graph
-  pose_graph.reserve(n_vertices_);
-
-  for (int i = 0; i < n_vertices_; i++) {
-    graph_->vertex(i);
-    // for (auto p : graph_ptr_->vertices()) {
-    for (std::pair<const int, g2o::HyperGraph::Vertex*> p : graph_->vertices()) {
-      int id = p.first;
-      if (id != i) continue;
-
-      auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
-      if (node) {
-        auto T               = node->estimate().translation();
-        Eigen::Quaterniond R = Eigen::Quaterniond(node->estimate().rotation());
-
-        pose_graph.emplace_back(
-            std::array<double, 7>{T.x(), T.y(), T.z(), R.w(), R.x(), R.y(), R.z()});
-      } else {
-        WARN("Node is not VertexSE3");
-      }
-    }
-  }
-  return pose_graph;
-}
-
-void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
-                                    const Eigen::Isometry3d& _obj_absolute_pose,
-                                    const Eigen::Isometry3d& _obj_relative_pose,
-                                    const Eigen::MatrixXd& _obj_covariance) {
-  // Eigen::Isometry3d node_pose = Eigen::Isometry3d::Identity();
-
-  g2o::VertexSE3* object_node;
-  int obj_node_id = obj_id2node_[_obj_id];
-
-  // TODO: Check if there is a better way
-  if (obj_node_id == 0) {
-    auto [t_object_node, id] = addSE3Node(_obj_absolute_pose);
-    object_node              = t_object_node;
-    obj_nodes_.emplace_back(object_node);
-    obj_id2node_[_obj_id] = id;
-    FLAG("Added new object ID: " << _obj_id << "::" << id);
-    // Other way
-    ObjectNodeInfo new_obj_node_info(_obj_id, object_node, _obj_covariance);
-    obj_nodes_info_.emplace_back(new_obj_node_info);
-
-  } else {
-    // Get object node from list
-    INFO("Already detected object ID: " << _obj_id);
-    object_node = dynamic_cast<g2o::VertexSE3*>(graph_->vertex(obj_node_id));
-  }
-
-  Eigen::MatrixXd information_matrix = _obj_covariance.inverse();
-  addSE3Edge(last_node_, object_node, _obj_relative_pose, information_matrix);
-  // INFO("Added new edge to object");
-}
-
-std::vector<ObjectNodeInfo> GraphG2O::getObjectNodes() { return obj_nodes_info_; }
-
-ObjectNodeInfo::ObjectNodeInfo(const std::string _id,
-                               g2o::HyperGraph::Vertex* _node,
-                               const Eigen::MatrixXd& _covariance) {
-  object_id  = _id;
-  node       = _node;
-  covariance = _covariance;
-}
+//   return graph_msg;
+// }

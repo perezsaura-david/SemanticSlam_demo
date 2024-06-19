@@ -49,9 +49,9 @@ include_directories(
 find_package(G2O REQUIRED)
 include_directories(SYSTEM ${G2O_INCLUDE_DIR} ${G2O_INCLUDE_DIRS})
 link_directories(${G2O_LIBRARY_DIRS})
-
+#EIGEN
 include_directories("/usr/include/eigen3")
-                      
+#FMT                      
 set(FMT_LIBRARIES fmt::fmt)
 
 # Plugins
@@ -106,12 +106,18 @@ install(
 #   export_${PROJECT_NAME}
 # )
 
+set(SOURCE_CPP_FILES
+  src/semantic_slam_node.cpp
+  src/semantic_slam.cpp
+  src/optimizer_g2o.cpp
+  src/graph_g2o.cpp)
+
 # Executable
-add_executable(${PROJECT_NAME}_node src/semantic_slam_node.cpp src/semantic_slam.cpp)
+add_executable(${PROJECT_NAME}_node ${SOURCE_CPP_FILES})
+# add_executable(${PROJECT_NAME}_node src/semantic_slam_node.cpp src/semantic_slam.cpp)
 target_include_directories(${PROJECT_NAME}_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-
 ament_target_dependencies(${PROJECT_NAME}_node ${PROJECT_DEPENDENCIES})
 target_link_libraries(${PROJECT_NAME}_node
                       ${G2O_TYPES_DATA}
