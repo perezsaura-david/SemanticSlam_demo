@@ -1,12 +1,12 @@
-/*!*******************************************************************************************
- *  \file       semantic_slam_node.cpp
- *  \brief      An slam node implementation for AeroStack2
+/********************************************************************************************
+ *  \file       conversions.hpp
+ *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
  *              Rafael Pérez Seguí
  *              Pedro Arias Pérez
  *
- *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
+ *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,14 +34,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#include <rclcpp/executors.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include "as2_slam/semantic_slam.hpp"
+#ifndef __AS2__CONVERSIONS_HPP_
+#define __AS2__CONVERSIONS_HPP_
 
-int main(int argc, char **argv) {
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<SemanticSlam>();
-  rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
-}
+#include <Eigen/Dense>
+#include <array>
+#include <geometry_msgs/msg/pose.hpp>
+
+struct PoseSE3 {
+  Eigen::Vector3d position;
+  Eigen::Quaterniond orientation;
+};
+
+PoseSE3 convertToPoseSE3(const Eigen::Vector3d& _position, const Eigen::Quaterniond& _orientation);
+PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose& _pose);
+PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry);
+
+Eigen::Isometry3d convertToIsometry3d(const Eigen::Vector3d& _position,
+                                      const Eigen::Quaterniond& _orientation);
+
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry);
+
+#endif  // ___AS2__CONVERSIONS_HPP_

@@ -1,5 +1,5 @@
 /********************************************************************************************
- *  \file       optimizer_g2o.hpp
+ *  \file       graph_g2o.hpp
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
@@ -37,12 +37,11 @@
 #ifndef __AS2__GRAPH_G2O_HPP_
 #define __AS2__GRAPH_G2O_HPP_
 
-#include "graph_g2o.hpp"
+#include "as2_slam/graph_edge_types.hpp"
+#include "as2_slam/graph_node_types.hpp"
 #include "utils/general_utils.hpp"
 
-#include <array>
-#include <memory>
-
+#include <g2o/core/optimizable_graph.h>
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/types_slam3d.h>
 #include <g2o/types/slam3d/vertex_se3.h>
@@ -62,16 +61,14 @@ class GraphG2O {
 public:
   GraphG2O(std::string _name);
   ~GraphG2O(){};
-  std::vector<std::array<double, 7>> getGraph();
-  std::vector<ObjectNodeInfo> getObjectNodes();
-  std::pair<g2o::VertexSE3*, int> addSE3Node(const Eigen::Isometry3d& pose);
-  g2o::EdgeSE3* addSE3Edge(g2o::VertexSE3* v1,
-                           g2o::VertexSE3* v2,
-                           const Eigen::Isometry3d& relative_pose,
-                           const Eigen::MatrixXd& information_matrix);
-  void optimizeGraph();
-  void initGraph(const Eigen::Vector3d& initial_position       = Eigen::Vector3d(0, 0, 0),
-                 const Eigen::Quaterniond& initial_orientation = Eigen::Quaterniond(1, 0, 0, 0));
+
+  std::string getName();
+  std::vector<GraphNode*> getNodes();
+  std::vector<GraphEdge*> getEdges();
+  std::unordered_map<std::string, ArucoNode*> getObjectNodes();
+
+  void addNode(GraphNode& _node);
+  void addEdge(GraphEdge& _edge);
   void addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
                       const Eigen::Isometry3d& _relative_pose,
                       const Eigen::MatrixXd& _relative_covariance);
@@ -79,12 +76,16 @@ public:
                             const Eigen::Isometry3d& _obj_absolute_pose,
                             const Eigen::Isometry3d& _obj_relative_pose,
                             const Eigen::MatrixXd& _obj_covariance);
+
+  void optimizeGraph();
+  void initGraph(const Eigen::Isometry3d& initial_pose = Eigen::Isometry3d::Identity());
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph
-  g2o::VertexSE3* last_node_;
-  Eigen::Isometry3d last_node_pose_;
-  std::vector<g2o::HyperGraph::Vertex*> odom_nodes_;
-  std::vector<g2o::HyperGraph::Vertex*> obj_nodes_;
-  std::unordered_map<std::string, int> obj_id2node_;
+
+  std::vector<GraphNode*> graph_nodes_;
+  std::vector<GraphEdge*> graph_edges_;
+
+  OdomNode* last_odom_node_;
+  std::unordered_map<std::string, ArucoNode*> obj_id2node_;
   std::vector<ObjectNodeInfo> obj_nodes_info_;
 
 private:

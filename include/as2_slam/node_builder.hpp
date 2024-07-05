@@ -1,12 +1,12 @@
-/*!*******************************************************************************************
- *  \file       semantic_slam_node.cpp
- *  \brief      An slam node implementation for AeroStack2
+/********************************************************************************************
+ *  \file       graph_node_types.hpp
+ *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
  *              Rafael Pérez Seguí
  *              Pedro Arias Pérez
  *
- *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
+ *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,14 +34,23 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#include <rclcpp/executors.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include "as2_slam/semantic_slam.hpp"
+#ifndef __AS2__NODE_BUILDER_HPP_
+#define __AS2__NODE_BUILDER_HPP_
 
-int main(int argc, char **argv) {
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<SemanticSlam>();
-  rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
-}
+#include <Eigen/src/Core/Matrix.h>
+#include <unordered_map>
+#include "as2_slam/graph_node_types.hpp"
+
+class NodeBuilder {
+  std::unordered_map<std::string, Eigen::Vector4d> colors;
+
+  void build(OdomNode* _node) {
+    color = ();
+
+    _node = new OdomNode(id, colors["odom"], flavor);
+  };
+
+  ArucoNode build();
+};
+
+#endif  // __AS2__NODE_BUILDER_HPP_

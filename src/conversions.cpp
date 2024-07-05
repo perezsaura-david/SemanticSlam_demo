@@ -1,6 +1,6 @@
 /********************************************************************************************
- *  \file       optimizer_g2o.hpp
- *  \brief      An state estimation server for AeroStack2
+ *  \file       conversions.cpp
+ *  \brief      An slam implementation for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
  *              Rafael Pérez Seguí
@@ -34,51 +34,45 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#ifndef __AS2__OPTIMIZER_G2O_HPP_
-#define __AS2__OPTIMIZER_G2O_HPP_
-
-#include "graph_g2o.hpp"
 #include "utils/conversions.hpp"
-#include "utils/general_utils.hpp"
+#include <geometry_msgs/msg/detail/pose__struct.hpp>
 
-#include <g2o/core/sparse_optimizer.h>
-#include <g2o/types/slam3d/types_slam3d.h>
-#include <g2o/types/slam3d/vertex_se3.h>
+PoseSE3 convertToPoseSE3(const Eigen::Vector3d& _position, const Eigen::Quaterniond& _orientation) {
+  PoseSE3 pose;
+  pose.position    = _position;
+  pose.orientation = _orientation;
+  return pose;
+}
 
-class OptimizerG2O {
-public:
-  OptimizerG2O();
-  ~OptimizerG2O(){};
-  std::shared_ptr<GraphG2O> main_graph;
-  std::shared_ptr<GraphG2O> temp_graph;
+PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose& _pose) {
+  PoseSE3 pose;
+  pose.position    = Eigen::Vector3d(_pose.position.x, _pose.position.y, _pose.position.z);
+  pose.orientation = Eigen::Quaterniond(_pose.orientation.w, _pose.orientation.x,
+                                        _pose.orientation.y, _pose.orientation.z);
+  return pose;
+}
 
-  bool handleNewOdom(const PoseSE3& _odom_pose, const Eigen::MatrixXd& _odom_covariance);
-  void handleNewObject(const std::string _obj_id,
-                       const PoseSE3& _obj_pose,
-                       const Eigen::MatrixXd& _obj_covariance,
-                       const PoseSE3& _odom_pose,
-                       const Eigen::MatrixXd& _odom_covariance);
-  bool getNodePose(g2o::HyperGraph::Vertex* _node,
-                   std::pair<Eigen::Vector3d, Eigen::Quaterniond>& _node_pose);
-  std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> getEdgesLines(
-      std::shared_ptr<GraphG2O>& _graph);
+PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry) {
+  PoseSE3 pose;
+  pose.position    = _isometry.translation();
+  pose.orientation = Eigen::Quaterniond(_isometry.rotation());
+  return pose;
+}
 
-private:
-  bool first_odom_          = true;
-  bool temp_graph_generated = false;
-  // TODO: add time_threshold_
-  double translation_distance_from_last_node_ = 0.0;
-  double rotation_distance_from_last_node_    = 0.0;
+Eigen::Isometry3d getIsometry(Eigen::Vector3d _position, Eigen::Quaterniond _orientation) {
+  Eigen::Isometry3d isometry = Eigen::Translation3d(_position) * _orientation;
+  return isometry;
+}
 
-  Eigen::Vector3d absolute_odom_position;
-  Eigen::Quaterniond absolute_odom_orientation;
-
-  // PARAMETERS
-  double odometry_distance_threshold_        = 1.0;  // meters
-  double odometry_orientation_threshold_     = 2;    // radians
-  double obj_odometry_distance_threshold_    = 0.5;  // meters
-  double obj_odometry_orientation_threshold_ = 0.5;  // radians
-  bool odometry_is_relative_                 = false;
-};
-
-#endif  // __AS2__OPTIMIZER_G2O_HPP_
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry) {
+  geometry_msgs::msg::Pose geometry_msg_pose;
+  PoseSE3 pose                    = convertToPoseSE3(_isometry);
+  geometry_msg_pose.position.x    = pose.position.x();
+  geometry_msg_pose.position.y    = pose.position.y();
+  geometry_msg_pose.position.z    = pose.position.z();
+  geometry_msg_pose.orientation.w = pose.orientation.w();
+  geometry_msg_pose.orientation.x = pose.orientation.x();
+  geometry_msg_pose.orientation.y = pose.orientation.y();
+  geometry_msg_pose.orientation.z = pose.orientation.z();
+  return geometry_msg_pose;
+}

@@ -1,12 +1,12 @@
-/*!*******************************************************************************************
- *  \file       semantic_slam_node.cpp
- *  \brief      An slam node implementation for AeroStack2
+/********************************************************************************************
+ *  \file       debug_utils.cpp
+ *  \brief      An slam implementation for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
  *              Rafael Pérez Seguí
  *              Pedro Arias Pérez
  *
- *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
+ *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,14 +34,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#include <rclcpp/executors.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include "as2_slam/semantic_slam.hpp"
+#include "utils/debug_utils.hpp"
 
-int main(int argc, char **argv) {
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<SemanticSlam>();
-  rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
+void debugGraphVertices(std::shared_ptr<GraphG2O> _graph) {
+  // DEBUG VertexSE3
+  for (auto p : _graph->graph_->vertices()) {
+    int id    = p.first;
+    auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
+    if (node) {
+      auto T = node->estimate().translation().transpose();
+      INFO("NODE " << id << " : " << T);
+    }
+    // else { Node is not VertexSE3 }
+  }
 }

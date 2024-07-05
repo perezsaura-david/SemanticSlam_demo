@@ -110,7 +110,9 @@ set(SOURCE_CPP_FILES
   src/semantic_slam_node.cpp
   src/semantic_slam.cpp
   src/optimizer_g2o.cpp
-  src/graph_g2o.cpp)
+  src/graph_g2o.cpp
+  src/conversions.cpp
+  src/debug_utils.cpp)
 
 # Executable
 add_executable(${PROJECT_NAME}_node ${SOURCE_CPP_FILES})

@@ -1,5 +1,5 @@
 /********************************************************************************************
- *  \file       optimizer_g2o.cpp
+ *  \file       graph_g2o.cpp
  *  \brief      An slam implementation for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
@@ -35,8 +35,16 @@
  ********************************************************************************/
 
 #include "as2_slam/graph_g2o.hpp"
+#include "as2_slam/graph_edge_types.hpp"
+#include "as2_slam/graph_node_types.hpp"
+#include "utils/conversions.hpp"
+#include "utils/general_utils.hpp"
 
+#include <Eigen/src/Core/util/IndexedViewHelper.h>
+#include <Eigen/src/Geometry/Transform.h>
 #include <g2o/core/optimization_algorithm_factory.h>
+#include <memory>
+#include <vector>
 
 G2O_USE_OPTIMIZATION_LIBRARY(pcg)
 G2O_USE_OPTIMIZATION_LIBRARY(cholmod)
@@ -62,27 +70,29 @@ GraphG2O::GraphG2O(std::string _name) {
     std::cin.ignore(1);
     return;
   }
+
+  n_vertices_ = 0;
+  n_edges_    = 0;
 }
 
-void GraphG2O::initGraph(const Eigen::Vector3d& initial_position,
-                         const Eigen::Quaterniond& initial_orientation) {
-  // this position will help the optimizer to find the correct solution ( its like the
-  // prior )
+std::string GraphG2O::getName() { return name_; };
+std::vector<GraphNode*> GraphG2O::getNodes() { return graph_nodes_; };
+std::vector<GraphEdge*> GraphG2O::getEdges() { return graph_edges_; };
+std::unordered_map<std::string, ArucoNode*> GraphG2O::getObjectNodes() { return obj_id2node_; }
+
+void GraphG2O::initGraph(const Eigen::Isometry3d& _initial_pose) {
+  // this position will help to find the correct solution (like the prior)
   // Initial_pose is set to (0,0,0) by default
-  Eigen::Isometry3d node_pose = Eigen::Translation3d(initial_position) * initial_orientation;
-  // auto [ground, id]           = addSE3Node(Eigen::Isometry3d::Identity());
-  auto [ground, id] = addSE3Node(node_pose);
-  odom_nodes_.emplace_back(ground);
-  ground->setFixed(true);
-  last_node_      = ground;
-  last_node_pose_ = node_pose;
+  Eigen::Isometry3d node_pose = _initial_pose;
+  OdomNode* fixed_node(new OdomNode(node_pose));
+  fixed_node->setFixed();
+  addNode(*fixed_node);
+
+  last_odom_node_ = fixed_node;
 }
 
 void GraphG2O::optimizeGraph() {
-  // g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(graph_ptr_.get());
   const int num_iterations = 100;
-
-  // std::cout << std::endl;
   INFO("--- pose " << name_ << " optimization ---");
   INFO("nodes: " << graph_->vertices().size() << "   edges: " << graph_->edges().size());
   // std::cout << "optimizing... " << std::flush;
@@ -105,113 +115,63 @@ void GraphG2O::optimizeGraph() {
   }
 }
 
-std::pair<g2o::VertexSE3*, int> GraphG2O::addSE3Node(const Eigen::Isometry3d& _pose) {
-  g2o::VertexSE3* vertex(new g2o::VertexSE3());
-  auto id = n_vertices_++;
-  vertex->setId(static_cast<int>(id));
-  vertex->setEstimate(_pose);
-  if (!graph_->addVertex(vertex)) {
+void GraphG2O::addNode(GraphNode& _node) {
+  // INFO("Add Node to Graph: " << name_);
+  int id = n_vertices_++;
+  _node.getVertex()->setId(id);
+  if (!graph_->addVertex(_node.getVertex())) {
     WARN("Vertex not added");
+    return;
   }
-  return {vertex, id};
+  graph_nodes_.emplace_back(&_node);
 }
 
-g2o::EdgeSE3* GraphG2O::addSE3Edge(g2o::VertexSE3* _v1,
-                                   g2o::VertexSE3* _v2,
-                                   const Eigen::Isometry3d& _relative_pose,
-                                   const Eigen::MatrixXd& _information_matrix) {
-  // DEBUG("information_matrix"); // Check Information Matrix
-  // DEBUG(_information_matrix);
-
-  g2o::EdgeSE3* edge(new g2o::EdgeSE3());
-  edge->setId(static_cast<int>(n_edges_++));
-  edge->setMeasurement(_relative_pose);
-  edge->setInformation(_information_matrix);
-  edge->vertices()[0] = _v1;
-  edge->vertices()[1] = _v2;
-  if (!graph_->addEdge(edge)) {
+void GraphG2O::addEdge(GraphEdge& _edge) {
+  int id = n_edges_++;
+  _edge.getEdge()->setId(id);
+  if (!graph_->addEdge(_edge.getEdge())) {
     WARN("Edge not added");
+    return;
   }
-  return edge;
+  graph_edges_.emplace_back(&_edge);
 }
 
 void GraphG2O::addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
                               const Eigen::Isometry3d& _relative_pose,
                               const Eigen::MatrixXd& _relative_covariance) {
-  // std::cout << "*** NEW KEY FRAME ***" << std::endl;
-  auto [node, id] = addSE3Node(_absolute_pose);
-  odom_nodes_.emplace_back(node);
+  // DEBUG("LOP: " << last_odom_node_->getPose().translation().transpose());
+  OdomNode* odom_node(new OdomNode(_absolute_pose));
+  addNode(*odom_node);
 
   Eigen::MatrixXd information_matrix = _relative_covariance.inverse();
-  addSE3Edge(last_node_, node, _relative_pose, information_matrix);
-  last_node_      = node;
-  last_node_pose_ = _absolute_pose;
-}
-
-std::vector<std::array<double, 7>> GraphG2O::getGraph() {
-  std::vector<std::array<double, 7>> pose_graph;
-  // Get number of nodes of the graph
-  pose_graph.reserve(n_vertices_);
-
-  for (int i = 0; i < n_vertices_; i++) {
-    graph_->vertex(i);
-    // for (auto p : graph_ptr_->vertices()) {
-    for (std::pair<const int, g2o::HyperGraph::Vertex*> p : graph_->vertices()) {
-      int id = p.first;
-      if (id != i) continue;
-
-      auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
-      if (node) {
-        auto T               = node->estimate().translation();
-        Eigen::Quaterniond R = Eigen::Quaterniond(node->estimate().rotation());
-
-        pose_graph.emplace_back(
-            std::array<double, 7>{T.x(), T.y(), T.z(), R.w(), R.x(), R.y(), R.z()});
-      } else {
-        WARN("Node is not VertexSE3");
-      }
-    }
-  }
-  return pose_graph;
+  OdomEdge* odom_edge(new OdomEdge(last_odom_node_, odom_node, _relative_pose, information_matrix));
+  addEdge(*odom_edge);
+  last_odom_node_ = odom_node;
 }
 
 void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
                                     const Eigen::Isometry3d& _obj_absolute_pose,
                                     const Eigen::Isometry3d& _obj_relative_pose,
                                     const Eigen::MatrixXd& _obj_covariance) {
-  // Eigen::Isometry3d node_pose = Eigen::Isometry3d::Identity();
+  ArucoNode* object_node;
+  // Get object node from list
+  object_node = obj_id2node_[_obj_id];
+  if (!object_node) {
+    // TODO: Check if there is a better way
+    ArucoNode* aruco_node(new ArucoNode(_obj_absolute_pose));
+    addNode(*aruco_node);
+    aruco_node->setCovariance(_obj_covariance);
+    object_node = aruco_node;
 
-  g2o::VertexSE3* object_node;
-  int obj_node_id = obj_id2node_[_obj_id];
-
-  // TODO: Check if there is a better way
-  if (obj_node_id == 0) {
-    auto [t_object_node, id] = addSE3Node(_obj_absolute_pose);
-    object_node              = t_object_node;
-    obj_nodes_.emplace_back(object_node);
-    obj_id2node_[_obj_id] = id;
-    FLAG("Added new object ID: " << _obj_id << "::" << id);
-    // Other way
-    ObjectNodeInfo new_obj_node_info(_obj_id, object_node, _obj_covariance);
-    obj_nodes_info_.emplace_back(new_obj_node_info);
-
+    obj_id2node_[_obj_id] = object_node;
+    FLAG("Added new object ID: " << _obj_id);
   } else {
-    // Get object node from list
     INFO("Already detected object ID: " << _obj_id);
-    object_node = dynamic_cast<g2o::VertexSE3*>(graph_->vertex(obj_node_id));
   }
 
   Eigen::MatrixXd information_matrix = _obj_covariance.inverse();
-  addSE3Edge(last_node_, object_node, _obj_relative_pose, information_matrix);
+  ArucoEdge* aruco_edge(
+      new ArucoEdge(last_odom_node_, object_node, _obj_relative_pose, information_matrix));
+  addEdge(*aruco_edge);
   // INFO("Added new edge to object");
-}
-
-std::vector<ObjectNodeInfo> GraphG2O::getObjectNodes() { return obj_nodes_info_; }
-
-ObjectNodeInfo::ObjectNodeInfo(const std::string _id,
-                               g2o::HyperGraph::Vertex* _node,
-                               const Eigen::MatrixXd& _covariance) {
-  object_id  = _id;
-  node       = _node;
-  covariance = _covariance;
 }
