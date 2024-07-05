@@ -37,14 +37,18 @@
 #ifndef __AS2__SEMANTIC_SLAM_HPP_
 #define __AS2__SEMANTIC_SLAM_HPP_
 
-#include "optimizer_g2o.hpp"
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
+#include <memory>
+#include <string>
+#include <as2_core/node.hpp>
+
+#include "as2_slam/optimizer_g2o.hpp"
 #include "utils/conversions.hpp"
 
 // ROS2
-#include <as2_core/node.hpp>
 
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 // #include <tf2_ros/static_transform_broadcaster.h>
 // #include <tf2_ros/transform_broadcaster.h>
 
@@ -54,10 +58,11 @@
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-class SemanticSlam : public as2::Node {
+class SemanticSlam : public as2::Node
+{
 public:
   SemanticSlam();
-  ~SemanticSlam(){};
+  ~SemanticSlam() {}
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
 
@@ -77,14 +82,14 @@ private:
   PoseSE3 last_odom_abs_pose_received_;
   Eigen::MatrixXd last_odom_abs_covariance_received_;
 
-  PoseSE3 generatePoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg);
+  PoseSE3 generatePoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID> & _msg);
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
   void visualizeTempGraph();
 
-  visualization_msgs::msg::MarkerArray generateVizNodesMsg(std::shared_ptr<GraphG2O>& _graph);
-  visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O>& _graph);
+  visualization_msgs::msg::MarkerArray generateVizNodesMsg(std::shared_ptr<GraphG2O> & _graph);
+  visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O> & _graph);
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
 
   // tf_broadcaster_; std::shared_ptr<tf2_ros::StaticTransformBroadcaster>

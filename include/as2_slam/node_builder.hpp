@@ -37,18 +37,22 @@
 #ifndef __AS2__NODE_BUILDER_HPP_
 #define __AS2__NODE_BUILDER_HPP_
 
-#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/Dense>
 #include <unordered_map>
+#include <string>
 #include "as2_slam/graph_node_types.hpp"
 
-class NodeBuilder {
+class NodeBuilder
+{
   std::unordered_map<std::string, Eigen::Vector4d> colors;
 
-  void build(OdomNode* _node) {
-    color = ();
+  void build(OdomNode * _node)
+  {
+    // color = ();
 
-    _node = new OdomNode(id, colors["odom"], flavor);
-  };
+    // _node = new OdomNode(id, colors["odom"], flavor);
+    (void) _node;
+  }
 
   ArucoNode build();
 };

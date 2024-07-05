@@ -50,16 +50,18 @@ G2O_USE_OPTIMIZATION_LIBRARY(pcg)
 G2O_USE_OPTIMIZATION_LIBRARY(cholmod)
 G2O_USE_OPTIMIZATION_LIBRARY(csparse)
 
-GraphG2O::GraphG2O(std::string _name) {
+GraphG2O::GraphG2O(std::string _name)
+{
   name_ = _name;
   FLAG("Create " << name_);
 
-  graph_                  = std::make_shared<g2o::SparseOptimizer>();  // g2o graph
+  graph_ = std::make_shared<g2o::SparseOptimizer>();                   // g2o graph
   std::string solver_type = "lm_var_cholmod";                          // Check list of solver types
   INFO("construct solver: " << solver_type);
-  g2o::OptimizationAlgorithmFactory* solver_factory = g2o::OptimizationAlgorithmFactory::instance();
+  g2o::OptimizationAlgorithmFactory * solver_factory =
+    g2o::OptimizationAlgorithmFactory::instance();
   g2o::OptimizationAlgorithmProperty solver_property;
-  g2o::OptimizationAlgorithm* solver = solver_factory->construct(solver_type, solver_property);
+  g2o::OptimizationAlgorithm * solver = solver_factory->construct(solver_type, solver_property);
   graph_->setAlgorithm(solver);
 
   if (!graph_->solver()) {
@@ -72,26 +74,28 @@ GraphG2O::GraphG2O(std::string _name) {
   }
 
   n_vertices_ = 0;
-  n_edges_    = 0;
+  n_edges_ = 0;
 }
 
-std::string GraphG2O::getName() { return name_; };
-std::vector<GraphNode*> GraphG2O::getNodes() { return graph_nodes_; };
-std::vector<GraphEdge*> GraphG2O::getEdges() { return graph_edges_; };
-std::unordered_map<std::string, ArucoNode*> GraphG2O::getObjectNodes() { return obj_id2node_; }
+std::string GraphG2O::getName() {return name_;}
+std::vector<GraphNodeInterface *> GraphG2O::getNodes() {return graph_nodes_;}
+std::vector<GraphEdge *> GraphG2O::getEdges() {return graph_edges_;}
+std::unordered_map<std::string, ArucoNode *> GraphG2O::getObjectNodes() {return obj_id2node_;}
 
-void GraphG2O::initGraph(const Eigen::Isometry3d& _initial_pose) {
+void GraphG2O::initGraph(const Eigen::Isometry3d & _initial_pose)
+{
   // this position will help to find the correct solution (like the prior)
   // Initial_pose is set to (0,0,0) by default
   Eigen::Isometry3d node_pose = _initial_pose;
-  OdomNode* fixed_node(new OdomNode(node_pose));
+  OdomNode * fixed_node(new OdomNode(node_pose));
   fixed_node->setFixed();
   addNode(*fixed_node);
 
   last_odom_node_ = fixed_node;
 }
 
-void GraphG2O::optimizeGraph() {
+void GraphG2O::optimizeGraph()
+{
   const int num_iterations = 100;
   INFO("--- pose " << name_ << " optimization ---");
   INFO("nodes: " << graph_->vertices().size() << "   edges: " << graph_->edges().size());
@@ -115,7 +119,8 @@ void GraphG2O::optimizeGraph() {
   }
 }
 
-void GraphG2O::addNode(GraphNode& _node) {
+void GraphG2O::addNode(GraphNodeInterface & _node)
+{
   // INFO("Add Node to Graph: " << name_);
   int id = n_vertices_++;
   _node.getVertex()->setId(id);
@@ -126,7 +131,8 @@ void GraphG2O::addNode(GraphNode& _node) {
   graph_nodes_.emplace_back(&_node);
 }
 
-void GraphG2O::addEdge(GraphEdge& _edge) {
+void GraphG2O::addEdge(GraphEdge & _edge)
+{
   int id = n_edges_++;
   _edge.getEdge()->setId(id);
   if (!graph_->addEdge(_edge.getEdge())) {
@@ -136,29 +142,35 @@ void GraphG2O::addEdge(GraphEdge& _edge) {
   graph_edges_.emplace_back(&_edge);
 }
 
-void GraphG2O::addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
-                              const Eigen::Isometry3d& _relative_pose,
-                              const Eigen::MatrixXd& _relative_covariance) {
+void GraphG2O::addNewKeyframe(
+  const Eigen::Isometry3d & _absolute_pose,
+  const Eigen::Isometry3d & _relative_pose,
+  const Eigen::MatrixXd & _relative_covariance)
+{
   // DEBUG("LOP: " << last_odom_node_->getPose().translation().transpose());
-  OdomNode* odom_node(new OdomNode(_absolute_pose));
+  OdomNode * odom_node(new OdomNode(_absolute_pose));
   addNode(*odom_node);
 
   Eigen::MatrixXd information_matrix = _relative_covariance.inverse();
-  OdomEdge* odom_edge(new OdomEdge(last_odom_node_, odom_node, _relative_pose, information_matrix));
+  OdomEdge * odom_edge(new OdomEdge(
+      last_odom_node_, odom_node, _relative_pose,
+      information_matrix));
   addEdge(*odom_edge);
   last_odom_node_ = odom_node;
 }
 
-void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
-                                    const Eigen::Isometry3d& _obj_absolute_pose,
-                                    const Eigen::Isometry3d& _obj_relative_pose,
-                                    const Eigen::MatrixXd& _obj_covariance) {
-  ArucoNode* object_node;
+void GraphG2O::addNewObjectKeyframe(
+  const std::string _obj_id,
+  const Eigen::Isometry3d & _obj_absolute_pose,
+  const Eigen::Isometry3d & _obj_relative_pose,
+  const Eigen::MatrixXd & _obj_covariance)
+{
+  ArucoNode * object_node;
   // Get object node from list
   object_node = obj_id2node_[_obj_id];
   if (!object_node) {
-    // TODO: Check if there is a better way
-    ArucoNode* aruco_node(new ArucoNode(_obj_absolute_pose));
+    // TODO(dps): Check if there is a better way
+    ArucoNode * aruco_node(new ArucoNode(_obj_absolute_pose));
     addNode(*aruco_node);
     aruco_node->setCovariance(_obj_covariance);
     object_node = aruco_node;
@@ -170,8 +182,8 @@ void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
   }
 
   Eigen::MatrixXd information_matrix = _obj_covariance.inverse();
-  ArucoEdge* aruco_edge(
-      new ArucoEdge(last_odom_node_, object_node, _obj_relative_pose, information_matrix));
+  ArucoEdge * aruco_edge(
+    new ArucoEdge(last_odom_node_, object_node, _obj_relative_pose, information_matrix));
   addEdge(*aruco_edge);
   // INFO("Added new edge to object");
 }

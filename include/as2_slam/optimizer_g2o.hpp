@@ -37,48 +37,57 @@
 #ifndef __AS2__OPTIMIZER_G2O_HPP_
 #define __AS2__OPTIMIZER_G2O_HPP_
 
-#include "graph_g2o.hpp"
-#include "utils/conversions.hpp"
-#include "utils/general_utils.hpp"
-
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/types_slam3d.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 
-class OptimizerG2O {
+#include <string>
+#include <memory>
+#include <vector>
+#include <utility>
+
+#include "as2_slam/graph_g2o.hpp"
+#include "utils/conversions.hpp"
+
+
+class OptimizerG2O
+{
 public:
   OptimizerG2O();
-  ~OptimizerG2O(){};
+  ~OptimizerG2O() {}
   std::shared_ptr<GraphG2O> main_graph;
   std::shared_ptr<GraphG2O> temp_graph;
+  // using PoseSE3 = std::pair<Eigen::Vector3d, Eigen::Quaterniond>;
 
-  bool handleNewOdom(const PoseSE3& _odom_pose, const Eigen::MatrixXd& _odom_covariance);
-  void handleNewObject(const std::string _obj_id,
-                       const PoseSE3& _obj_pose,
-                       const Eigen::MatrixXd& _obj_covariance,
-                       const PoseSE3& _odom_pose,
-                       const Eigen::MatrixXd& _odom_covariance);
-  bool getNodePose(g2o::HyperGraph::Vertex* _node,
-                   std::pair<Eigen::Vector3d, Eigen::Quaterniond>& _node_pose);
-  std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> getEdgesLines(
-      std::shared_ptr<GraphG2O>& _graph);
+  bool handleNewOdom(const PoseSE3 & _odom_pose, const Eigen::MatrixXd & _odom_covariance);
+  void handleNewObject(
+    const std::string & _obj_id,
+    const PoseSE3 & _obj_pose,
+    const Eigen::MatrixXd & _obj_covariance,
+    const PoseSE3 & _odom_pose,
+    const Eigen::MatrixXd & _odom_covariance);
+  // bool getNodePose(
+  //   g2o::HyperGraph::Vertex * _node,
+  //   std::pair<Eigen::Vector3d, Eigen::Quaterniond> & _node_pose);
+  // std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> getEdgesLines(
+  //   std::shared_ptr<GraphG2O> & _graph);
 
 private:
-  bool first_odom_          = true;
+  bool first_odom_ = true;
   bool temp_graph_generated = false;
-  // TODO: add time_threshold_
+  // TODO(dps): add time_threshold_
   double translation_distance_from_last_node_ = 0.0;
-  double rotation_distance_from_last_node_    = 0.0;
+  double rotation_distance_from_last_node_ = 0.0;
 
   Eigen::Vector3d absolute_odom_position;
   Eigen::Quaterniond absolute_odom_orientation;
 
   // PARAMETERS
-  double odometry_distance_threshold_        = 1.0;  // meters
-  double odometry_orientation_threshold_     = 2;    // radians
-  double obj_odometry_distance_threshold_    = 0.5;  // meters
+  double odometry_distance_threshold_ = 1.0;         // meters
+  double odometry_orientation_threshold_ = 2;        // radians
+  double obj_odometry_distance_threshold_ = 0.5;     // meters
   double obj_odometry_orientation_threshold_ = 0.5;  // radians
-  bool odometry_is_relative_                 = false;
+  bool odometry_is_relative_ = false;
 };
 
 #endif  // __AS2__OPTIMIZER_G2O_HPP_

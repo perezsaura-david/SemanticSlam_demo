@@ -36,11 +36,12 @@
 
 #include "utils/debug_utils.hpp"
 
-void debugGraphVertices(std::shared_ptr<GraphG2O> _graph) {
+void debugGraphVertices(std::shared_ptr<GraphG2O> _graph)
+{
   // DEBUG VertexSE3
   for (auto p : _graph->graph_->vertices()) {
-    int id    = p.first;
-    auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
+    int id = p.first;
+    auto node = dynamic_cast<g2o::VertexSE3 *>(p.second);
     if (node) {
       auto T = node->estimate().translation().transpose();
       INFO("NODE " << id << " : " << T);

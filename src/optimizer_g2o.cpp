@@ -37,13 +37,15 @@
 #include "as2_slam/optimizer_g2o.hpp"
 #include <memory>
 #include <utility>
-#include "graph_g2o.hpp"
-#include "graph_node_types.hpp"
+
+#include "as2_slam/graph_g2o.hpp"
+#include "as2_slam/graph_node_types.hpp"
 #include "utils/conversions.hpp"
 #include "utils/debug_utils.hpp"
 #include "utils/general_utils.hpp"
 
-OptimizerG2O::OptimizerG2O() {
+OptimizerG2O::OptimizerG2O()
+{
   FLAG("STARTING SEMANTIC SLAM");
 
   main_graph = std::make_shared<GraphG2O>("Main Graph");
@@ -58,12 +60,14 @@ OptimizerG2O::OptimizerG2O() {
   main_graph->initGraph();
 }
 
-bool OptimizerG2O::handleNewOdom(const PoseSE3& _odom_pose,
-                                 const Eigen::MatrixXd& _odom_covariance) {
+bool OptimizerG2O::handleNewOdom(
+  const PoseSE3 & _odom_pose,
+  const Eigen::MatrixXd & _odom_covariance)
+{
   Eigen::Isometry3d absolute_odom_pose;
   Eigen::Isometry3d relative_odom_pose;
   if (odometry_is_relative_) {
-    // TODO RELATIVE ODOMETRY
+    // TODO(dps): RELATIVE ODOMETRY
     // relative_pose = odom_pose;
     ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
   } else {
@@ -71,12 +75,12 @@ bool OptimizerG2O::handleNewOdom(const PoseSE3& _odom_pose,
     absolute_odom_pose = Eigen::Translation3d(_odom_pose.position) * _odom_pose.orientation;
     relative_odom_pose = main_graph->last_odom_node_->getPose().inverse() * absolute_odom_pose;
   }
-  // TODO: check time from the last odometry received
+  // TODO(dps): check time from the last odometry received
 
   // Check distance from the last odometry received
   double translation_distance_from_last_node = relative_odom_pose.translation().norm();
   double rotation_distance_from_last_node =
-      relative_odom_pose.rotation().norm();  // FIXME: get rotation distance
+    relative_odom_pose.rotation().norm();    // FIXME: get rotation distance
 
   if (translation_distance_from_last_node < odometry_distance_threshold_) {
     if (rotation_distance_from_last_node < odometry_orientation_threshold_) {
@@ -92,20 +96,21 @@ bool OptimizerG2O::handleNewOdom(const PoseSE3& _odom_pose,
     for (auto object : temp_graph->getObjectNodes()) {
       Eigen::Isometry3d absolute_obj_pose = object.second->getPose();
       Eigen::Isometry3d relative_obj_pose = absolute_odom_pose.inverse() * absolute_obj_pose;
-      main_graph->addNewObjectKeyframe(object.first, absolute_obj_pose, relative_obj_pose,
-                                       object.second->getCovariance());
+      main_graph->addNewObjectKeyframe(
+        object.first, absolute_obj_pose, relative_obj_pose,
+        object.second->getCovariance());
     }
 
     FLAG("RESET TEMP GRAPH");
     auto sharing = temp_graph.use_count();
-    if (sharing > 1) DEBUG("Temp graph Shared: " << sharing);
+    if (sharing > 1) {DEBUG("Temp graph Shared: " << sharing);}
     temp_graph.reset();
-    // TODO: Check this
-    temp_graph           = std::make_shared<GraphG2O>("Temp Graph");
+    // TODO(dps): Check this
+    temp_graph = std::make_shared<GraphG2O>("Temp Graph");
     temp_graph_generated = false;
   }
 
-  // TODO: Choose when to optimize: either every time a new keyframe is added, or every certain
+  // TODO(dps): Choose when to optimize: either every time a new keyframe is added, or every certain
   // period of time
   main_graph->optimizeGraph();
   // debugGraphVertices(main_graph);
@@ -113,11 +118,13 @@ bool OptimizerG2O::handleNewOdom(const PoseSE3& _odom_pose,
   return true;
 }
 
-void OptimizerG2O::handleNewObject(const std::string _obj_id,
-                                   const PoseSE3& _obj_pose,
-                                   const Eigen::MatrixXd& _obj_covariance,
-                                   const PoseSE3& _odom_pose,
-                                   const Eigen::MatrixXd& _odom_covariance) {
+void OptimizerG2O::handleNewObject(
+  const std::string & _obj_id,
+  const PoseSE3 & _obj_pose,
+  const Eigen::MatrixXd & _obj_covariance,
+  const PoseSE3 & _odom_pose,
+  const Eigen::MatrixXd & _odom_covariance)
+{
   Eigen::Isometry3d absolute_odom_pose;
   if (odometry_is_relative_) {
     ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
@@ -150,9 +157,9 @@ void OptimizerG2O::handleNewObject(const std::string _obj_id,
   temp_graph->addNewKeyframe(absolute_odom_pose, relative_odom_pose, _odom_covariance);
 
   // DEBUG("**** Added new OBJECT keyframe ****");
-  // TODO: CURRENT OBJECT POSITION IS ABSOLUTE. SHOULD OBJECT POSITION BE RELATIVE?
+  // TODO(dps): CURRENT OBJECT POSITION IS ABSOLUTE. SHOULD OBJECT POSITION BE RELATIVE?
   Eigen::Isometry3d absolute_obj_pose =
-      Eigen::Translation3d(_obj_pose.position) * _obj_pose.orientation;
+    Eigen::Translation3d(_obj_pose.position) * _obj_pose.orientation;
   Eigen::Isometry3d relative_obj_pose = absolute_odom_pose.inverse() * absolute_obj_pose;
   temp_graph->addNewObjectKeyframe(_obj_id, absolute_obj_pose, relative_obj_pose, _obj_covariance);
   temp_graph->optimizeGraph();
@@ -160,15 +167,17 @@ void OptimizerG2O::handleNewObject(const std::string _obj_id,
   // debugGraphVertices(temp_graph);
 }
 
-bool OptimizerG2O::getNodePose(g2o::HyperGraph::Vertex* _node,
-                               std::pair<Eigen::Vector3d, Eigen::Quaterniond>& _node_pose) {
-  g2o::VertexSE3* node_se3 = dynamic_cast<g2o::VertexSE3*>(_node);
-  if (!node_se3) {
-    return false;
-  }
+// bool OptimizerG2O::getNodePose(
+//   g2o::HyperGraph::Vertex * _node,
+//   std::pair<Eigen::Vector3d, Eigen::Quaterniond> & _node_pose)
+// {
+//   g2o::VertexSE3 * node_se3 = dynamic_cast<g2o::VertexSE3 *>(_node);
+//   if (!node_se3) {
+//     return false;
+//   }
 
-  _node_pose.first  = node_se3->estimate().translation();
-  _node_pose.second = Eigen::Quaterniond(node_se3->estimate().rotation());
+//   _node_pose.first = node_se3->estimate().translation();
+//   _node_pose.second = Eigen::Quaterniond(node_se3->estimate().rotation());
 
-  return true;
-}
+//   return true;
+// }

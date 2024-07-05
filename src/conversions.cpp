@@ -37,39 +37,45 @@
 #include "utils/conversions.hpp"
 #include <geometry_msgs/msg/detail/pose__struct.hpp>
 
-PoseSE3 convertToPoseSE3(const Eigen::Vector3d& _position, const Eigen::Quaterniond& _orientation) {
+PoseSE3 convertToPoseSE3(const Eigen::Vector3d & _position, const Eigen::Quaterniond & _orientation)
+{
   PoseSE3 pose;
-  pose.position    = _position;
+  pose.position = _position;
   pose.orientation = _orientation;
   return pose;
 }
 
-PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose& _pose) {
+PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose & _pose)
+{
   PoseSE3 pose;
-  pose.position    = Eigen::Vector3d(_pose.position.x, _pose.position.y, _pose.position.z);
-  pose.orientation = Eigen::Quaterniond(_pose.orientation.w, _pose.orientation.x,
-                                        _pose.orientation.y, _pose.orientation.z);
+  pose.position = Eigen::Vector3d(_pose.position.x, _pose.position.y, _pose.position.z);
+  pose.orientation = Eigen::Quaterniond(
+    _pose.orientation.w, _pose.orientation.x,
+    _pose.orientation.y, _pose.orientation.z);
   return pose;
 }
 
-PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry) {
+PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry)
+{
   PoseSE3 pose;
-  pose.position    = _isometry.translation();
+  pose.position = _isometry.translation();
   pose.orientation = Eigen::Quaterniond(_isometry.rotation());
   return pose;
 }
 
-Eigen::Isometry3d getIsometry(Eigen::Vector3d _position, Eigen::Quaterniond _orientation) {
+Eigen::Isometry3d getIsometry(Eigen::Vector3d _position, Eigen::Quaterniond _orientation)
+{
   Eigen::Isometry3d isometry = Eigen::Translation3d(_position) * _orientation;
   return isometry;
 }
 
-geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry) {
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d & _isometry)
+{
   geometry_msgs::msg::Pose geometry_msg_pose;
-  PoseSE3 pose                    = convertToPoseSE3(_isometry);
-  geometry_msg_pose.position.x    = pose.position.x();
-  geometry_msg_pose.position.y    = pose.position.y();
-  geometry_msg_pose.position.z    = pose.position.z();
+  PoseSE3 pose = convertToPoseSE3(_isometry);
+  geometry_msg_pose.position.x = pose.position.x();
+  geometry_msg_pose.position.y = pose.position.y();
+  geometry_msg_pose.position.z = pose.position.z();
   geometry_msg_pose.orientation.w = pose.orientation.w();
   geometry_msg_pose.orientation.x = pose.orientation.x();
   geometry_msg_pose.orientation.y = pose.orientation.y();

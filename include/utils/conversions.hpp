@@ -38,21 +38,24 @@
 #define __AS2__CONVERSIONS_HPP_
 
 #include <Eigen/Dense>
-#include <array>
 #include <geometry_msgs/msg/pose.hpp>
 
-struct PoseSE3 {
+struct PoseSE3
+{
   Eigen::Vector3d position;
   Eigen::Quaterniond orientation;
 };
 
-PoseSE3 convertToPoseSE3(const Eigen::Vector3d& _position, const Eigen::Quaterniond& _orientation);
-PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose& _pose);
+PoseSE3 convertToPoseSE3(
+  const Eigen::Vector3d & _position,
+  const Eigen::Quaterniond & _orientation);
+PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose & _pose);
 PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry);
 
-Eigen::Isometry3d convertToIsometry3d(const Eigen::Vector3d& _position,
-                                      const Eigen::Quaterniond& _orientation);
+Eigen::Isometry3d convertToIsometry3d(
+  const Eigen::Vector3d & _position,
+  const Eigen::Quaterniond & _orientation);
 
-geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry);
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d & _isometry);
 
 #endif  // ___AS2__CONVERSIONS_HPP_

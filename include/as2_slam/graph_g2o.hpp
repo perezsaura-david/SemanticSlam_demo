@@ -37,60 +37,70 @@
 #ifndef __AS2__GRAPH_G2O_HPP_
 #define __AS2__GRAPH_G2O_HPP_
 
-#include "as2_slam/graph_edge_types.hpp"
-#include "as2_slam/graph_node_types.hpp"
-#include "utils/general_utils.hpp"
-
 #include <g2o/core/optimizable_graph.h>
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/types_slam3d.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 
-struct ObjectNodeInfo {
-  ObjectNodeInfo(const std::string _id,
-                 g2o::HyperGraph::Vertex* _node,
-                 const Eigen::MatrixXd& _covariance);
-  ~ObjectNodeInfo(){};
+#include <vector>
+#include <unordered_map>
+#include <memory>
+#include <string>
+
+#include "as2_slam/graph_edge_types.hpp"
+#include "as2_slam/graph_node_types.hpp"
+#include "utils/general_utils.hpp"
+
+struct ObjectNodeInfo
+{
+  ObjectNodeInfo(
+    const std::string _id,
+    g2o::HyperGraph::Vertex * _node,
+    const Eigen::MatrixXd & _covariance);
+  ~ObjectNodeInfo() {}
 
   std::string object_id;
-  g2o::HyperGraph::Vertex* node;
+  g2o::HyperGraph::Vertex * node;
   Eigen::MatrixXd covariance;
 };
 
-class GraphG2O {
+class GraphG2O
+{
 public:
-  GraphG2O(std::string _name);
-  ~GraphG2O(){};
+  explicit GraphG2O(std::string _name);
+  ~GraphG2O() {}
 
   std::string getName();
-  std::vector<GraphNode*> getNodes();
-  std::vector<GraphEdge*> getEdges();
-  std::unordered_map<std::string, ArucoNode*> getObjectNodes();
+  std::vector<GraphNodeInterface *> getNodes();
+  std::vector<GraphEdge *> getEdges();
+  std::unordered_map<std::string, ArucoNode *> getObjectNodes();
 
-  void addNode(GraphNode& _node);
-  void addEdge(GraphEdge& _edge);
-  void addNewKeyframe(const Eigen::Isometry3d& _absolute_pose,
-                      const Eigen::Isometry3d& _relative_pose,
-                      const Eigen::MatrixXd& _relative_covariance);
-  void addNewObjectKeyframe(const std::string _obj_id,
-                            const Eigen::Isometry3d& _obj_absolute_pose,
-                            const Eigen::Isometry3d& _obj_relative_pose,
-                            const Eigen::MatrixXd& _obj_covariance);
+  void addNode(GraphNodeInterface & _node);
+  void addEdge(GraphEdge & _edge);
+  void addNewKeyframe(
+    const Eigen::Isometry3d & _absolute_pose,
+    const Eigen::Isometry3d & _relative_pose,
+    const Eigen::MatrixXd & _relative_covariance);
+  void addNewObjectKeyframe(
+    const std::string _obj_id,
+    const Eigen::Isometry3d & _obj_absolute_pose,
+    const Eigen::Isometry3d & _obj_relative_pose,
+    const Eigen::MatrixXd & _obj_covariance);
 
   void optimizeGraph();
-  void initGraph(const Eigen::Isometry3d& initial_pose = Eigen::Isometry3d::Identity());
+  void initGraph(const Eigen::Isometry3d & initial_pose = Eigen::Isometry3d::Identity());
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph
 
-  std::vector<GraphNode*> graph_nodes_;
-  std::vector<GraphEdge*> graph_edges_;
+  std::vector<GraphNodeInterface *> graph_nodes_;
+  std::vector<GraphEdge *> graph_edges_;
 
-  OdomNode* last_odom_node_;
-  std::unordered_map<std::string, ArucoNode*> obj_id2node_;
+  OdomNode * last_odom_node_;
+  std::unordered_map<std::string, ArucoNode *> obj_id2node_;
   std::vector<ObjectNodeInfo> obj_nodes_info_;
 
 private:
   int n_vertices_ = 0;
-  int n_edges_    = 0;
+  int n_edges_ = 0;
   std::string name_;
 };
 

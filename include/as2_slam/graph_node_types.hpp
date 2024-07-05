@@ -45,85 +45,95 @@
 #include <g2o/types/slam3d/vertex_se3.h>
 #include <visualization_msgs/msg/marker.hpp>
 
-class GraphNode {
+class GraphNodeInterface
+{
 public:
-  virtual g2o::HyperGraph::Vertex* getVertex()           = 0;
+  virtual g2o::HyperGraph::Vertex * getVertex()           = 0;
   virtual visualization_msgs::msg::Marker getVizMarker() = 0;
   virtual Eigen::Vector4d getVizMarkerColor()            = 0;
   virtual std::string getVizMarkerNamespace()            = 0;
   virtual std::string getNodeName()                      = 0;
 };
 
-class GraphNodeSE3 : public GraphNode {
+class GraphNodeSE3 : public GraphNodeInterface
+{
 public:
-  GraphNodeSE3(const Eigen::Isometry3d& _pose) {
+  GraphNodeSE3(const Eigen::Isometry3d & _pose)
+  {
     vertex_ = new g2o::VertexSE3();
     vertex_->setEstimate(_pose);
-  };
-  ~GraphNodeSE3(){};
+  }
+  ~GraphNodeSE3() {}
 
-  virtual g2o::HyperGraph::Vertex* getVertex() override {
-    return static_cast<g2o::HyperGraph::Vertex*>(vertex_);
-  };
+  virtual g2o::HyperGraph::Vertex * getVertex() override
+  {
+    return static_cast<g2o::HyperGraph::Vertex *>(vertex_);
+  }
 
-  g2o::VertexSE3* getVertexSE3() { return vertex_; };
+  g2o::VertexSE3 * getVertexSE3() {return vertex_;}
 
-  virtual visualization_msgs::msg::Marker getVizMarker() override {
+  virtual visualization_msgs::msg::Marker getVizMarker() override
+  {
     visualization_msgs::msg::Marker node_marker_msg;
-    node_marker_msg.type    = node_marker_msg.ARROW;
-    node_marker_msg.ns      = getVizMarkerNamespace();
-    node_marker_msg.id      = vertex_->id();
-    node_marker_msg.pose    = convertToGeometryMsgPose(getPose());
+    node_marker_msg.type = node_marker_msg.ARROW;
+    node_marker_msg.ns = getVizMarkerNamespace();
+    node_marker_msg.id = vertex_->id();
+    node_marker_msg.pose = convertToGeometryMsgPose(getPose());
     node_marker_msg.scale.x = 0.5;
     node_marker_msg.scale.y = 0.05;
     node_marker_msg.scale.z = 0.05;
-    Eigen::Vector4d color   = getVizMarkerColor();
+    Eigen::Vector4d color = getVizMarkerColor();
     node_marker_msg.color.r = color[0];
     node_marker_msg.color.g = color[1];
     node_marker_msg.color.b = color[2];
     node_marker_msg.color.a = color[3];
     return node_marker_msg;
-  };
+  }
 
-  virtual void setFixed() { vertex_->setFixed(true); };
-  Eigen::Isometry3d getPose() { return vertex_->estimate(); };
-  void setCovariance(const Eigen::MatrixXd& _cov_matrix) { cov_matrix_ = _cov_matrix; };
-  Eigen::MatrixXd getCovariance() { return cov_matrix_; };
+  virtual void setFixed() {vertex_->setFixed(true);}
+  Eigen::Isometry3d getPose() {return vertex_->estimate();}
+  void setCovariance(const Eigen::MatrixXd & _cov_matrix) {cov_matrix_ = _cov_matrix;}
+  Eigen::MatrixXd getCovariance() {return cov_matrix_;}
 
 protected:
-  virtual std::string getNodeName() override { return node_name_; };
-  virtual std::string getVizMarkerNamespace() override {
+  virtual std::string getNodeName() override {return node_name_;}
+  virtual std::string getVizMarkerNamespace() override
+  {
     return element_name_ + "/" + getNodeName();
   }
-  virtual Eigen::Vector4d getVizMarkerColor() override { return viz_color_; }
+  virtual Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}
 
-  g2o::VertexSE3* vertex_;
-  std::string element_name_  = "node";
-  std::string node_name_     = "SE3";
+  g2o::VertexSE3 * vertex_;
+  std::string element_name_ = "node";
+  std::string node_name_ = "SE3";
   Eigen::Vector4d viz_color_ = {1.0, 1.0, 1.0, 1.0};
   Eigen::MatrixXd cov_matrix_;
 };
 
-class ArucoNode : public GraphNodeSE3 {
+class ArucoNode : public GraphNodeSE3
+{
 public:
-  ArucoNode(const Eigen::Isometry3d& _pose) : GraphNodeSE3(_pose){};
+  ArucoNode(const Eigen::Isometry3d & _pose)
+  : GraphNodeSE3(_pose) {}
 
 protected:
-  std::string node_name_     = "Aruco";
+  std::string node_name_ = "Aruco";
   Eigen::Vector4d viz_color_ = {0.0, 1.0, 0.0, 1.0};
-  virtual std::string getNodeName() override { return node_name_; };
-  virtual Eigen::Vector4d getVizMarkerColor() override { return viz_color_; }
+  virtual std::string getNodeName() override {return node_name_;}
+  virtual Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}
 };
 
-class OdomNode : public GraphNodeSE3 {
+class OdomNode : public GraphNodeSE3
+{
 public:
-  OdomNode(const Eigen::Isometry3d& _pose) : GraphNodeSE3(_pose){};
+  OdomNode(const Eigen::Isometry3d & _pose)
+  : GraphNodeSE3(_pose) {}
 
 protected:
-  std::string node_name_     = "Odometry";
+  std::string node_name_ = "Odometry";
   Eigen::Vector4d viz_color_ = {0.0, 0.0, 1.0, 1.0};
-  virtual std::string getNodeName() override { return node_name_; };
-  virtual Eigen::Vector4d getVizMarkerColor() override { return viz_color_; }
+  virtual std::string getNodeName() override {return node_name_;}
+  virtual Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}
 };
 
 #endif  // __AS2__GRAPH_NODE_TYPES_HPP_

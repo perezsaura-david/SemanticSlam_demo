@@ -38,7 +38,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include "as2_slam/semantic_slam.hpp"
 
-int main(int argc, char **argv) {
+int main(int argc, char ** argv)
+{
   rclcpp::init(argc, argv);
   auto node = std::make_shared<SemanticSlam>();
   rclcpp::spin(node);
