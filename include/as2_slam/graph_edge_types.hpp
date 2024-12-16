@@ -3,8 +3,6 @@
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
@@ -63,14 +61,14 @@ public:
                GraphNodeSE3* _node2,
                const Eigen::Isometry3d& _relative_pose,
                const Eigen::MatrixXd& _information_matrix) {
+    if (_information_matrix.size() == 0) {
+      WARN("Information Matrix Empty");
+    }
     edge_ = new g2o::EdgeSE3();
     edge_->setMeasurement(_relative_pose);
     edge_->setInformation(_information_matrix);
     edge_->vertices()[0] = _node1->getVertexSE3();
     edge_->vertices()[1] = _node2->getVertexSE3();
-    if (_information_matrix.size() == 0) {
-      WARN("Information Matrix Empty");
-    }
   };
   ~GraphEdgeSE3(){};
 
@@ -86,7 +84,9 @@ public:
     // node_marker_msg.header.frame_id = getReferenceFrame();
     edge_marker_msg.ns      = getVizMarkerNamespace();
     edge_marker_msg.id      = edge_->id();
-    edge_marker_msg.scale.x = 0.01;  // Thickness
+    edge_marker_msg.scale.x = 0.02;  // Thickness
+    edge_marker_msg.scale.y = 0.02;  // Thickness
+    edge_marker_msg.scale.z = 0.02;  // Thickness
     Eigen::Vector4d color   = getVizMarkerColor();
     edge_marker_msg.color.r = color[0];
     edge_marker_msg.color.g = color[1];

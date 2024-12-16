@@ -169,21 +169,8 @@ install(
 )
 
 if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
-  find_package(ament_cmake_cppcheck REQUIRED)
-  find_package(ament_cmake_clang_format REQUIRED)
-  ament_cppcheck(src/ include/ tests/ plugins/)
-  ament_clang_format(src/ include/ tests/ plugins/ --config ${CMAKE_CURRENT_SOURCE_DIR}/.clang-format)
-
-  # Create a list of all the source files to be tested
-  # from /plugins/plugin_name/tests/plugin_test.cpp if file exists
-  # foreach(PLUGINS ${PLUGIN_LIST})
-  #   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/${PLUGINS}/tests/${PLUGINS}_test.cpp)
-  #     list(APPEND TEST_SOURCE_CPP_FILES
-  #       plugins/${PLUGINS}/tests/${PLUGINS}_test.cpp
-  #     )
-  #   endif()
-  # endforeach()
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
 
   if(TEST_SOURCE_CPP_FILES)
     ament_add_gtest(${PROJECT_NAME}_test ${TEST_SOURCE_CPP_FILES})

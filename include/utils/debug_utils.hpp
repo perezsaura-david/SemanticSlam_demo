@@ -3,8 +3,6 @@
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved

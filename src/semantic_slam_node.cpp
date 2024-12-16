@@ -3,8 +3,6 @@
  *  \brief      An slam node implementation for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
  *              All Rights Reserved

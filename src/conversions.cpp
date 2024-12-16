@@ -3,8 +3,6 @@
  *  \brief      An slam implementation for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
@@ -59,9 +57,18 @@ PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry) {
   return pose;
 }
 
-Eigen::Isometry3d getIsometry(Eigen::Vector3d _position, Eigen::Quaterniond _orientation) {
+Eigen::Isometry3d convertToIsometry3d(const Eigen::Vector3d& _position,
+                                      const Eigen::Quaterniond& _orientation) {
   Eigen::Isometry3d isometry = Eigen::Translation3d(_position) * _orientation;
   return isometry;
+}
+
+Eigen::Isometry3d convertToIsometry3d(const geometry_msgs::msg::Pose& _pose) {
+    Eigen::Isometry3d isometry = Eigen::Isometry3d::Identity();
+    isometry.translation() = Eigen::Vector3d(_pose.position.x, _pose.position.y, _pose.position.z);
+    Eigen::Quaterniond quaternion(_pose.orientation.w, _pose.orientation.x, _pose.orientation.y, _pose.orientation.z);
+    isometry.rotate(quaternion);
+    return isometry;
 }
 
 geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry) {
@@ -75,4 +82,26 @@ geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isom
   geometry_msg_pose.orientation.y = pose.orientation.y();
   geometry_msg_pose.orientation.z = pose.orientation.z();
   return geometry_msg_pose;
+}
+
+geometry_msgs::msg::TransformStamped convertToTransformStamped(
+    const Eigen::Isometry3d& _transform,
+    const std::string& _parent_frame,
+    const std::string& _child_frame,
+    const rclcpp::Time& _stamp) {
+    
+    geometry_msgs::msg::TransformStamped transform_msg;
+    transform_msg.header.stamp = _stamp;
+    transform_msg.header.frame_id = _parent_frame;
+    transform_msg.child_frame_id = _child_frame;
+    transform_msg.transform.translation.x = _transform.translation().x();
+    transform_msg.transform.translation.y = _transform.translation().y();
+    transform_msg.transform.translation.z = _transform.translation().z();
+    Eigen::Quaterniond q(_transform.rotation());
+    transform_msg.transform.rotation.x = q.x();
+    transform_msg.transform.rotation.y = q.y();
+    transform_msg.transform.rotation.z = q.z();
+    transform_msg.transform.rotation.w = q.w();
+    
+    return transform_msg;
 }

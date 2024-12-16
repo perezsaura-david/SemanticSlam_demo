@@ -3,8 +3,6 @@
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
@@ -66,6 +64,7 @@ public:
   std::vector<GraphNode*> getNodes();
   std::vector<GraphEdge*> getEdges();
   std::unordered_map<std::string, ArucoNode*> getObjectNodes();
+  OdomNode* getLastOdomNode();
 
   void addNode(GraphNode& _node);
   void addEdge(GraphEdge& _edge);
@@ -78,13 +77,10 @@ public:
                             const Eigen::MatrixXd& _obj_covariance);
 
   void optimizeGraph();
-  void initGraph(const Eigen::Isometry3d& initial_pose = Eigen::Isometry3d::Identity());
+  void setFixedObjects(const std::vector<IsometryWithID>& _fixed_objects);
+  void initGraph(const Eigen::Isometry3d& _initial_pose = Eigen::Isometry3d::Identity());
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph
 
-  std::vector<GraphNode*> graph_nodes_;
-  std::vector<GraphEdge*> graph_edges_;
-
-  OdomNode* last_odom_node_;
   std::unordered_map<std::string, ArucoNode*> obj_id2node_;
   std::vector<ObjectNodeInfo> obj_nodes_info_;
 
@@ -92,6 +88,9 @@ private:
   int n_vertices_ = 0;
   int n_edges_    = 0;
   std::string name_;
+  OdomNode* last_odom_node_;
+  std::vector<GraphNode*> graph_nodes_;
+  std::vector<GraphEdge*> graph_edges_;
 };
 
 #endif  // __AS2__OPTIMIZER_G2O_HPP_

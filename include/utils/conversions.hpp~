@@ -1,6 +1,6 @@
 /********************************************************************************************
- *  \file       debug_utils.cpp
- *  \brief      An slam implementation for AeroStack2
+ *  \file       conversions.hpp
+ *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
  *
@@ -32,17 +32,39 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#include "utils/debug_utils.hpp"
+#ifndef __AS2__CONVERSIONS_HPP_
+#define __AS2__CONVERSIONS_HPP_
 
-void debugGraphVertices(std::shared_ptr<GraphG2O> _graph) {
-  // DEBUG VertexSE3
-  for (auto p : _graph->graph_->vertices()) {
-    int id    = p.first;
-    auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
-    if (node) {
-      auto T = node->estimate().translation().transpose();
-      INFO("NODE " << id << " : " << T);
-    }
-    // else { Node is not VertexSE3 }
-  }
-}
+#include <Eigen/Dense>
+#include <Eigen/src/Geometry/Transform.h>
+#include <array>
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
+
+struct PoseSE3 {
+  Eigen::Vector3d position;
+  Eigen::Quaterniond orientation;
+};
+
+struct IsometryWithID {
+  std::string id;
+  Eigen::Isometry3d isometry;
+};
+
+PoseSE3 convertToPoseSE3(const Eigen::Vector3d& _position, const Eigen::Quaterniond& _orientation);
+PoseSE3 convertToPoseSE3(const geometry_msgs::msg::Pose& _pose);
+PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry);
+
+Eigen::Isometry3d convertToIsometry3d(const Eigen::Vector3d& _position,
+                                      const Eigen::Quaterniond& _orientation);
+Eigen::Isometry3d convertToIsometry3d(const geometry_msgs::msg::Pose& _pose) {
+
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry);
+geometry_msgs::msg::TransformStamped convertToTransformStamped(
+    const Eigen::Isometry3d& _transform,
+    const std::string& _parent_frame,
+    const std::string& _child_frame,
+    const rclcpp::Time& _stamp); 
+
+#endif  // ___AS2__CONVERSIONS_HPP_

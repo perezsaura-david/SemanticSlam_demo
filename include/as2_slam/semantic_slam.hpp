@@ -3,8 +3,6 @@
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
@@ -41,18 +39,20 @@
 #include "utils/conversions.hpp"
 
 // ROS2
+#include <Eigen/src/Geometry/Transform.h>
 #include <as2_core/node.hpp>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 // #include <tf2_ros/static_transform_broadcaster.h>
-// #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 // ROS2 MSGS
 #include <as2_msgs/msg/pose_stamped_with_id.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <std_msgs/msg/header.hpp>
 
 class SemanticSlam : public as2::Node {
 public:
@@ -66,18 +66,23 @@ private:
   rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr aruco_pose_sub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_main_markers_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_temp_markers_pub_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-  std::string reference_frame_;
+  std::string map_frame_;
+  std::string odom_frame_;
   std::string robot_frame_;
+  bool odometry_is_relative_ = false;
 
   std::unique_ptr<OptimizerG2O> optimizer_ptr_;  // g2o graph
 
-  PoseSE3 last_odom_abs_pose_received_;
+  // PoseSE3 last_odom_abs_pose_received_;
+  Eigen::Isometry3d last_odom_abs_pose_received_;
   Eigen::MatrixXd last_odom_abs_covariance_received_;
+  geometry_msgs::msg::TransformStamped map_odom_transform_msg_; 
 
-  PoseSE3 generatePoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg);
+  Eigen::Isometry3d generatePoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg);
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
@@ -86,6 +91,7 @@ private:
   visualization_msgs::msg::MarkerArray generateVizNodesMsg(std::shared_ptr<GraphG2O>& _graph);
   visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O>& _graph);
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
+  void updateMapOdomTransform(const std_msgs::msg::Header& _header); 
 
   // tf_broadcaster_; std::shared_ptr<tf2_ros::StaticTransformBroadcaster>
   // tfstatic_broadcaster_; std::shared_ptr<tf2_ros::Buffer> tf_buffer_;

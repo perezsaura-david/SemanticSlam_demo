@@ -3,8 +3,6 @@
  *  \brief      An slam implementation for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
@@ -40,6 +38,7 @@
 #include "utils/conversions.hpp"
 #include "utils/general_utils.hpp"
 
+#include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Core/util/IndexedViewHelper.h>
 #include <Eigen/src/Geometry/Transform.h>
 #include <g2o/core/optimization_algorithm_factory.h>
@@ -79,6 +78,22 @@ std::string GraphG2O::getName() { return name_; };
 std::vector<GraphNode*> GraphG2O::getNodes() { return graph_nodes_; };
 std::vector<GraphEdge*> GraphG2O::getEdges() { return graph_edges_; };
 std::unordered_map<std::string, ArucoNode*> GraphG2O::getObjectNodes() { return obj_id2node_; }
+OdomNode* GraphG2O::getLastOdomNode() { return last_odom_node_; }
+
+
+void GraphG2O::setFixedObjects(const std::vector<IsometryWithID>& _fixed_objects) {
+  // FIXME: testing covariance
+  Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.1;
+
+  for (auto object : _fixed_objects) {
+    ArucoNode* fixed_node(new ArucoNode(object.isometry));
+    fixed_node->setFixed();
+    // fixed_node->setCovariance(aruco_covariance);
+    addNode(*fixed_node);
+    obj_id2node_[object.id] = fixed_node;
+    FLAG("Added fixed object ID: " << object.id);
+  }
+}
 
 void GraphG2O::initGraph(const Eigen::Isometry3d& _initial_pose) {
   // this position will help to find the correct solution (like the prior)
@@ -87,7 +102,6 @@ void GraphG2O::initGraph(const Eigen::Isometry3d& _initial_pose) {
   OdomNode* fixed_node(new OdomNode(node_pose));
   fixed_node->setFixed();
   addNode(*fixed_node);
-
   last_odom_node_ = fixed_node;
 }
 
@@ -170,8 +184,9 @@ void GraphG2O::addNewObjectKeyframe(const std::string _obj_id,
   }
 
   Eigen::MatrixXd information_matrix = _obj_covariance.inverse();
+  // DEBUG("ADD EDGE TO: " << name_);
   ArucoEdge* aruco_edge(
       new ArucoEdge(last_odom_node_, object_node, _obj_relative_pose, information_matrix));
   addEdge(*aruco_edge);
-  // INFO("Added new edge to object");
+  // DEBUG("Added new edge to object");
 }

@@ -3,8 +3,6 @@
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
- *              Rafael Pérez Seguí
- *              Pedro Arias Pérez
  *
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
@@ -38,12 +36,20 @@
 #define __AS2__CONVERSIONS_HPP_
 
 #include <Eigen/Dense>
+#include <Eigen/src/Geometry/Transform.h>
 #include <array>
 #include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 struct PoseSE3 {
   Eigen::Vector3d position;
   Eigen::Quaterniond orientation;
+};
+
+struct IsometryWithID {
+  std::string id;
+  Eigen::Isometry3d isometry;
 };
 
 PoseSE3 convertToPoseSE3(const Eigen::Vector3d& _position, const Eigen::Quaterniond& _orientation);
@@ -52,7 +58,13 @@ PoseSE3 convertToPoseSE3(Eigen::Isometry3d _isometry);
 
 Eigen::Isometry3d convertToIsometry3d(const Eigen::Vector3d& _position,
                                       const Eigen::Quaterniond& _orientation);
+Eigen::Isometry3d convertToIsometry3d(const geometry_msgs::msg::Pose& _pose); 
 
 geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d& _isometry);
+geometry_msgs::msg::TransformStamped convertToTransformStamped(
+    const Eigen::Isometry3d& _transform,
+    const std::string& _parent_frame,
+    const std::string& _child_frame,
+    const rclcpp::Time& _stamp); 
 
 #endif  // ___AS2__CONVERSIONS_HPP_
