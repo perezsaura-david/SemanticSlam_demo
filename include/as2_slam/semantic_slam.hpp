@@ -1,3 +1,32 @@
+// Copyright 2024 Universidad Politécnica de Madrid
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//    * Redistributions of source code must retain the above copyright
+//      notice, this list of conditions and the following disclaimer.
+//
+//    * Redistributions in binary form must reproduce the above copyright
+//      notice, this list of conditions and the following disclaimer in the
+//      documentation and/or other materials provided with the distribution.
+//
+//    * Neither the name of the Universidad Politécnica de Madrid nor the names of its
+//      contributors may be used to endorse or promote products derived from
+//      this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+
 /********************************************************************************************
  *  \file       semantic_slam.hpp
  *  \brief      An state estimation server for AeroStack2
@@ -54,10 +83,11 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <std_msgs/msg/header.hpp>
 
-class SemanticSlam : public as2::Node {
+class SemanticSlam : public as2::Node
+{
 public:
   SemanticSlam();
-  ~SemanticSlam(){};
+  ~SemanticSlam() {}
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
 
@@ -80,18 +110,19 @@ private:
   // PoseSE3 last_odom_abs_pose_received_;
   Eigen::Isometry3d last_odom_abs_pose_received_;
   Eigen::MatrixXd last_odom_abs_covariance_received_;
-  geometry_msgs::msg::TransformStamped map_odom_transform_msg_; 
+  geometry_msgs::msg::TransformStamped map_odom_transform_msg_;
 
-  Eigen::Isometry3d generatePoseFromMsg(const std::shared_ptr<as2_msgs::msg::PoseStampedWithID>& _msg);
+  Eigen::Isometry3d generatePoseFromMsg(
+    const std::shared_ptr<as2_msgs::msg::PoseStampedWithID> & _msg);
 
   void visualizeCleanTempGraph();
   void visualizeMainGraph();
   void visualizeTempGraph();
 
-  visualization_msgs::msg::MarkerArray generateVizNodesMsg(std::shared_ptr<GraphG2O>& _graph);
-  visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O>& _graph);
+  visualization_msgs::msg::MarkerArray generateVizNodesMsg(std::shared_ptr<GraphG2O> & _graph);
+  visualization_msgs::msg::MarkerArray generateVizEdgesMsg(std::shared_ptr<GraphG2O> & _graph);
   visualization_msgs::msg::MarkerArray generateCleanMarkersMsg();
-  void updateMapOdomTransform(const std_msgs::msg::Header& _header); 
+  void updateMapOdomTransform(const std_msgs::msg::Header & _header);
 
   // tf_broadcaster_; std::shared_ptr<tf2_ros::StaticTransformBroadcaster>
   // tfstatic_broadcaster_; std::shared_ptr<tf2_ros::Buffer> tf_buffer_;

@@ -1,3 +1,31 @@
+// Copyright 2024 Universidad Politécnica de Madrid
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//    * Redistributions of source code must retain the above copyright
+//      notice, this list of conditions and the following disclaimer.
+//
+//    * Redistributions in binary form must reproduce the above copyright
+//      notice, this list of conditions and the following disclaimer in the
+//      documentation and/or other materials provided with the distribution.
+//
+//    * Neither the name of the Universidad Politécnica de Madrid nor the names of its
+//      contributors may be used to endorse or promote products derived from
+//      this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
 
 #include <g2o/core/block_solver.h>
 #include <g2o/core/eigen_types.h>
@@ -24,11 +52,12 @@ G2O_USE_OPTIMIZATION_LIBRARY(csparse)
 // using MatrixX = MatrixN<Eigen::Dynamic>;
 
 int n_vertices = 0;
-int n_edges    = 0;
+int n_edges = 0;
 std::unique_ptr<g2o::SparseOptimizer> graph;  // g2o graph
 
-std::pair<int, g2o::VertexSE3*> add_se3_node(const Eigen::Isometry3d& pose) {
-  g2o::VertexSE3* vertex(new g2o::VertexSE3());
+std::pair<int, g2o::VertexSE3 *> add_se3_node(const Eigen::Isometry3d & pose)
+{
+  g2o::VertexSE3 * vertex(new g2o::VertexSE3());
   auto id = n_vertices++;
   vertex->setId(static_cast<int>(id));
   vertex->setEstimate(pose);
@@ -36,11 +65,13 @@ std::pair<int, g2o::VertexSE3*> add_se3_node(const Eigen::Isometry3d& pose) {
   return {id, vertex};
 }
 
-g2o::EdgeSE3* add_se3_edge(g2o::VertexSE3* v1,
-                           g2o::VertexSE3* v2,
-                           const Eigen::Isometry3d& relative_pose,
-                           const Eigen::MatrixXd& information_matrix) {
-  g2o::EdgeSE3* edge(new g2o::EdgeSE3());
+g2o::EdgeSE3 * add_se3_edge(
+  g2o::VertexSE3 * v1,
+  g2o::VertexSE3 * v2,
+  const Eigen::Isometry3d & relative_pose,
+  const Eigen::MatrixXd & information_matrix)
+{
+  g2o::EdgeSE3 * edge(new g2o::EdgeSE3());
   edge->setId(static_cast<int>(n_edges++));
   edge->setMeasurement(relative_pose);
   edge->setInformation(information_matrix);
@@ -50,9 +81,10 @@ g2o::EdgeSE3* add_se3_edge(g2o::VertexSE3* v1,
   return edge;
 }
 
-void optimize() {
-  g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(::graph.get());
-  const int num_iterations    = 100;
+void optimize()
+{
+  g2o::SparseOptimizer * graph = dynamic_cast<g2o::SparseOptimizer *>(::graph.get());
+  const int num_iterations = 100;
 
   std::cout << std::endl;
   std::cout << "--- pose graph optimization ---" << std::endl;
@@ -78,8 +110,9 @@ void optimize() {
   }
 }
 
-void generate_graph() {
-  std::vector<g2o::VertexSE3*> nodes;
+void generate_graph()
+{
+  std::vector<g2o::VertexSE3 *> nodes;
   // robot1 will go through positions 1,0 -> 2,0 -> 3,0 (z = 0 allways)
   // first node is fixed to 0,0,0
   auto [id0, ground] = add_se3_node(Eigen::Isometry3d::Identity());
@@ -116,8 +149,8 @@ void generate_graph() {
     optimize();
     for (auto p : graph->vertices()) {
       // for (pair[ int id, VertexSE3 node ] : graph->vertices()) {
-      int id    = p.first;
-      auto node = dynamic_cast<g2o::VertexSE3*>(p.second);
+      int id = p.first;
+      auto node = dynamic_cast<g2o::VertexSE3 *>(p.second);
       if (node) {
         auto T = node->estimate().translation().transpose();
         auto R = node->estimate().rotation().transpose();
@@ -225,15 +258,17 @@ void generate_graph() {
   //   // std::cout << spinv << std::endl;
 }
 
-int main() {
-  std::string solver_type     = "lm_var_cholmod";
-  ::graph                     = std::make_unique<g2o::SparseOptimizer>();
-  g2o::SparseOptimizer* graph = dynamic_cast<g2o::SparseOptimizer*>(::graph.get());
+int main()
+{
+  std::string solver_type = "lm_var_cholmod";
+  ::graph = std::make_unique<g2o::SparseOptimizer>();
+  g2o::SparseOptimizer * graph = dynamic_cast<g2o::SparseOptimizer *>(::graph.get());
 
   std::cout << "construct solver: " << solver_type << std::endl;
-  g2o::OptimizationAlgorithmFactory* solver_factory = g2o::OptimizationAlgorithmFactory::instance();
+  g2o::OptimizationAlgorithmFactory * solver_factory =
+    g2o::OptimizationAlgorithmFactory::instance();
   g2o::OptimizationAlgorithmProperty solver_property;
-  g2o::OptimizationAlgorithm* solver = solver_factory->construct(solver_type, solver_property);
+  g2o::OptimizationAlgorithm * solver = solver_factory->construct(solver_type, solver_property);
   graph->setAlgorithm(solver);
 
   if (!graph->solver()) {

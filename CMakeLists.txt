@@ -51,7 +51,7 @@ include_directories(SYSTEM ${G2O_INCLUDE_DIR} ${G2O_INCLUDE_DIRS})
 link_directories(${G2O_LIBRARY_DIRS})
 #EIGEN
 include_directories("/usr/include/eigen3")
-#FMT                      
+#FMT
 set(FMT_LIBRARIES fmt::fmt)
 
 # Plugins
@@ -131,7 +131,7 @@ target_link_libraries(${PROJECT_NAME}_node
                       ${G2O_TYPES_SLAM3D}
                       ${G2O_TYPES_SLAM3D_ADDONS}
                       ${FMT_LIBRARIES}
-                    )
+)
 
 add_executable(g2o_3D_slam src/g2o_3D_slam.cpp)
 ament_target_dependencies(g2o_3D_slam ${PROJECT_DEPENDENCIES})
@@ -146,9 +146,9 @@ target_link_libraries(g2o_3D_slam
                       ${G2O_TYPES_SLAM3D}
                       ${G2O_TYPES_SLAM3D_ADDONS}
                       ${FMT_LIBRARIES}
-                      )
+)
 
-install(TARGETS 
+install(TARGETS
   ${PROJECT_NAME}_node
   g2o_3D_slam
   DESTINATION lib/${PROJECT_NAME})

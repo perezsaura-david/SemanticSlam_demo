@@ -1,4 +1,4 @@
-<!-- <library path="as2_state_estimator">
+<library path="as2_state_estimator">
   <class type="raw_odometry::Plugin" base_class_type="as2_state_estimator_plugin_base::StateEstimatorBase">
     <description>State estimator plugin for external odom estimation.</description>
   </class>
@@ -8,4 +8,4 @@
   <class type="mocap_pose::Plugin" base_class_type="as2_state_estimator_plugin_base::StateEstimatorBase">
     <description>State estimator plugin for mocap_pose optitrack.</description>
   </class>
-</library> -->
+</library>
