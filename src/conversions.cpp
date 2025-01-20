@@ -26,42 +26,17 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
-/********************************************************************************************
- *  \file       conversions.cpp
- *  \brief      An slam implementation for AeroStack2
- *  \authors    David Pérez Saura
- *              Miguel Fernández Cortizas
+/**
+ * @file debug_utils.cpp
  *
- *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
- *              All Rights Reserved
+ * Conversions implementation for semantic slam
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- ********************************************************************************/
+ * @author David Pérez Saura
+ *         Miguel Fernández Cortizas
+ */
 
 #include "utils/conversions.hpp"
+#include <string>
 #include <geometry_msgs/msg/detail/pose__struct.hpp>
 
 PoseSE3 convertToPoseSE3(const Eigen::Vector3d & _position, const Eigen::Quaterniond & _orientation)
@@ -128,7 +103,6 @@ geometry_msgs::msg::TransformStamped convertToTransformStamped(
   const std::string & _child_frame,
   const rclcpp::Time & _stamp)
 {
-
   geometry_msgs::msg::TransformStamped transform_msg;
   transform_msg.header.stamp = _stamp;
   transform_msg.header.frame_id = _parent_frame;

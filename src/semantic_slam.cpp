@@ -26,56 +26,33 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
-/********************************************************************************************
- *  \file       semantic_slam.cpp
- *  \brief      An slam implementation for AeroStack2
- *  \authors    David Pérez Saura
- *              Miguel Fernández Cortizas
+/**
+ * @file semantic_slam.cpp
  *
- *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
- *              All Rights Reserved
+ * SemanticSlam class implementation for AeroStack2
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- ********************************************************************************/
+ * @author David Pérez Saura
+ *         Miguel Fernández Cortizas
+ */
 
 #include "as2_slam/semantic_slam.hpp"
-#include "as2_slam/graph_node_types.hpp"
-#include "utils/conversions.hpp"
-#include "utils/general_utils.hpp"
-
-#include "as2_core/names/topics.hpp"
-#include "as2_core/utils/frame_utils.hpp"
-#include "as2_core/utils/tf_utils.hpp"
-
 #include <Eigen/src/Geometry/Transform.h>
 #include <g2o/core/optimizable_graph.h>
-#include <array>
 #include <memory>
-#include <visualization_msgs/msg/detail/marker_array__struct.hpp>
+#include <string>
+#include <vector>
+
+#include "as2_slam/graph_node_types.hpp"
+#include "utils/conversions.hpp"
+
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+// #include "utils/general_utils.hpp"
+// #include "as2_core/names/topics.hpp"
+// #include "as2_core/utils/frame_utils.hpp"
+// #include "as2_core/utils/tf_utils.hpp"
+// #include <array>
 // #include <filesystem>
 // #include <pluginlib/class_loader.hpp>
 // #include "plugin_base.hpp"
@@ -131,21 +108,22 @@ SemanticSlam::SemanticSlam()
   updateMapOdomTransform(header);
 }
 
+
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   Eigen::Isometry3d odom_pose = convertToIsometry3d(msg->pose.pose);
-  // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
-  //     msg->pose.covariance.data());
+  Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
+    msg->pose.covariance.data());
 
-  Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.01;
+  // Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.01;
 
   last_odom_abs_pose_received_ = odom_pose;
   last_odom_abs_covariance_received_ = odom_covariance;
 
-  // TODO: Define how to use this
+  // TODO(dps): Define how to use this
   // msg->header.frame_id;
   // msg->header.stamp;
-  // TODO: handle covariance
+  // TODO(dps): handle covariance
   bool new_node_added = optimizer_ptr_->handleNewOdom(odom_pose, odom_covariance);
 
   if (new_node_added) {
@@ -161,7 +139,7 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg)
 {
   std::string aruco_id = msg->id;
-  // TODO: Define how to use this
+  // TODO(dps): Define how to use this
   // msg->pose.header.frame_id;
   // msg->pose.header.stamp;
   // PoseSE3 aruco_pose = generatePoseFromMsg(msg);
@@ -181,7 +159,7 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
 
 void SemanticSlam::updateMapOdomTransform(const std_msgs::msg::Header & _header)
 {
-  //TODO: Check the frames
+  // TODO(dps): Check the frames
   map_odom_transform_msg_ = convertToTransformStamped(
     optimizer_ptr_->getMapOdomTransform(), map_frame_, odom_frame_, _header.stamp);
 }

@@ -26,50 +26,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
-/********************************************************************************************
- *  \file       optimizer_g2o.cpp
- *  \brief      An slam implementation for AeroStack2
- *  \authors    David Pérez Saura
- *              Miguel Fernández Cortizas
+/**
+ * @file optimizer_g2o.cpp
  *
- *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
- *              All Rights Reserved
+ * OptimizerG2O class implementation for AeroStack2
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- ********************************************************************************/
+ * @author David Pérez Saura
+ *         Miguel Fernández Cortizas
+ */
 
 #include "as2_slam/optimizer_g2o.hpp"
 #include <Eigen/src/Geometry/Transform.h>
 #include <memory>
 #include <utility>
-#include "graph_g2o.hpp"
-#include "graph_node_types.hpp"
+#include <vector>
+#include <string>
+#include "as2_slam/graph_g2o.hpp"
+#include "as2_slam/graph_node_types.hpp"
 #include "utils/conversions.hpp"
-#include "utils/debug_utils.hpp"
 #include "utils/general_utils.hpp"
+// #include "utils/debug_utils.hpp"
 
 OptimizerG2O::OptimizerG2O()
 {
@@ -84,14 +60,14 @@ OptimizerG2O::OptimizerG2O()
     WARN("Absolute odometry");
   }
 
-  //TODO: Make this a parameter
+  // TODO(dps): Make this a parameter
   std::vector<std::pair<std::string, Eigen::Vector3d>> fixed_objects_list = {
     {"gate_1", Eigen::Vector3d(4.0, 1.3, 1.13)},
     {"gate_2", Eigen::Vector3d(4.0, -1.34, 1.16)},
     {"gate_3", Eigen::Vector3d(-4.0, -1.29, 1.16)},
     {"gate_4", Eigen::Vector3d(-3.97, 1.28, 1.17)}
   };
-  Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity(); // Assuming default orientation
+  Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();  // Assuming default orientation
 
   std::vector<IsometryWithID> fixed_objects;
   for (auto object : fixed_objects_list) {
@@ -114,7 +90,7 @@ void OptimizerG2O::generateRelativeAndAbsoluteOdometryPoses(
   Eigen::Isometry3d & _relative_odom_pose)
 {
   if (odometry_is_relative_) {
-    // TODO RELATIVE ODOMETRY
+    // TODO(dps): RELATIVE ODOMETRY
     // relative_pose = odom_pose;
     ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
   } else {
@@ -141,7 +117,7 @@ bool OptimizerG2O::handleNewOdom(
   // pose = convertToPoseSE3(transformed_odom_pose);
   // INFO(pose.position.x() << " " << pose.position.y() << " " << pose.position.z());
 
-  // TODO: check time from the last odometry received
+  // TODO(dps): check time from the last odometry received
   // Check distance from the last odometry received
   double translation_distance_from_last_node = relative_odom_pose.translation().norm();
   // FIXME: get rotation distance
@@ -172,13 +148,15 @@ bool OptimizerG2O::handleNewOdom(
 
     // FLAG("RESET TEMP GRAPH");
     auto sharing = temp_graph.use_count();
-    if (sharing > 1) {DEBUG("Temp graph Shared: " << sharing);}
+    if (sharing > 1) {
+      DEBUG("Temp graph Shared: " << sharing);
+    }
     temp_graph.reset();
     temp_graph = std::make_shared<GraphG2O>("Temp Graph");
     temp_graph_generated = false;
   }
 
-  // TODO: Choose when to optimize: either every time a new keyframe is added, or every certain
+  // TODO(dps): Choose when to optimize: either every time a new keyframe is added, or every certain
   // period of time
   main_graph->optimizeGraph();
   updateOdomMapTransform();
@@ -188,7 +166,7 @@ bool OptimizerG2O::handleNewOdom(
 }
 
 void OptimizerG2O::handleNewObject(
-  const std::string _obj_id,
+  const std::string & _obj_id,
   const Eigen::Isometry3d & _obj_pose,
   const Eigen::MatrixXd & _obj_covariance,
   const Eigen::Isometry3d & _new_odometry_pose,

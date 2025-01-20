@@ -133,24 +133,24 @@ target_link_libraries(${PROJECT_NAME}_node
                       ${FMT_LIBRARIES}
 )
 
-add_executable(g2o_3D_slam src/g2o_3D_slam.cpp)
-ament_target_dependencies(g2o_3D_slam ${PROJECT_DEPENDENCIES})
-# target_link_libraries(g2o_3D_slam ${PROJECT_NAME} ${OpenCV_LIBS})
-target_link_libraries(g2o_3D_slam
-                      ${G2O_TYPES_DATA}
-                      ${G2O_CORE_LIBRARY}
-                      ${G2O_STUFF_LIBRARY}
-                      ${G2O_SOLVER_PCG}
-                      ${G2O_SOLVER_CSPARSE}   # be aware of that CSPARSE is released under LGPL
-                      ${G2O_SOLVER_CHOLMOD}   # be aware of that cholmod is released under GPL
-                      ${G2O_TYPES_SLAM3D}
-                      ${G2O_TYPES_SLAM3D_ADDONS}
-                      ${FMT_LIBRARIES}
-)
+# add_executable(g2o_3D_slam src/g2o_3D_slam.cpp)
+# ament_target_dependencies(g2o_3D_slam ${PROJECT_DEPENDENCIES})
+# # target_link_libraries(g2o_3D_slam ${PROJECT_NAME} ${OpenCV_LIBS})
+# target_link_libraries(g2o_3D_slam
+#                       ${G2O_TYPES_DATA}
+#                       ${G2O_CORE_LIBRARY}
+#                       ${G2O_STUFF_LIBRARY}
+#                       ${G2O_SOLVER_PCG}
+#                       ${G2O_SOLVER_CSPARSE}   # be aware of that CSPARSE is released under LGPL
+#                       ${G2O_SOLVER_CHOLMOD}   # be aware of that cholmod is released under GPL
+#                       ${G2O_TYPES_SLAM3D}
+#                       ${G2O_TYPES_SLAM3D_ADDONS}
+#                       ${FMT_LIBRARIES}
+# )
 
 install(TARGETS
   ${PROJECT_NAME}_node
-  g2o_3D_slam
+  # g2o_3D_slam
   DESTINATION lib/${PROJECT_NAME})
 
 # For each plugin, install config files
