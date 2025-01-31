@@ -40,19 +40,18 @@
 #ifndef AS2_SLAM__GRAPH_G2O_HPP_
 #define AS2_SLAM__GRAPH_G2O_HPP_
 
-#include "as2_slam/graph_edge_types.hpp"
-#include "as2_slam/graph_node_types.hpp"
-
 #include <g2o/core/optimizable_graph.h>
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/slam3d/types_slam3d.h>
 #include <g2o/types/slam3d/vertex_se3.h>
-
 #include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
 
+#include "as2_slam/graph_edge_types.hpp"
+#include "as2_slam/graph_node_types.hpp"
+#include "as2_slam/object_detection_types.hpp"
 #include "utils/general_utils.hpp"
 
 struct ObjectNodeInfo
@@ -77,7 +76,7 @@ public:
   std::string getName();
   std::vector<GraphNode *> getNodes();
   std::vector<GraphEdge *> getEdges();
-  std::unordered_map<std::string, ArucoNode *> getObjectNodes();
+  std::unordered_map<std::string, GraphNode *> getObjectNodes();
   OdomNode * getLastOdomNode();
 
   void addNode(GraphNode & _node);
@@ -86,18 +85,20 @@ public:
     const Eigen::Isometry3d & _absolute_pose,
     const Eigen::Isometry3d & _relative_pose,
     const Eigen::MatrixXd & _relative_covariance);
-  void addNewObjectKeyframe(
-    const std::string & _obj_id,
-    const Eigen::Isometry3d & _obj_absolute_pose,
-    const Eigen::Isometry3d & _obj_relative_pose,
-    const Eigen::MatrixXd & _obj_covariance);
+  // void addNewObjectKeyframe(
+  //   const std::string & _obj_id,
+  //   const Eigen::Isometry3d & _obj_absolute_pose,
+  //   const Eigen::Isometry3d & _obj_relative_pose,
+  //   const Eigen::MatrixXd & _obj_covariance);
+  void addNewObjectDetection(ObjectDetection * _object);
 
   void optimizeGraph();
   void setFixedObjects(const std::vector<IsometryWithID> & _fixed_objects);
   void initGraph(const Eigen::Isometry3d & _initial_pose = Eigen::Isometry3d::Identity());
   std::shared_ptr<g2o::SparseOptimizer> graph_;  // g2o graph
 
-  std::unordered_map<std::string, ArucoNode *> obj_id2node_;
+  // std::unordered_map<std::string, ArucoNode *> obj_id2node_;
+  std::unordered_map<std::string, GraphNode *> obj_id2node_;
   std::vector<ObjectNodeInfo> obj_nodes_info_;
 
 private:

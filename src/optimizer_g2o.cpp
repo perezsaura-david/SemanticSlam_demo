@@ -36,13 +36,16 @@
  */
 
 #include "as2_slam/optimizer_g2o.hpp"
+#include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Geometry/Transform.h>
 #include <memory>
 #include <utility>
 #include <vector>
 #include <string>
+#include <iostream>
 #include "as2_slam/graph_g2o.hpp"
 #include "as2_slam/graph_node_types.hpp"
+#include "as2_slam/object_detection_types.hpp"
 #include "utils/conversions.hpp"
 #include "utils/general_utils.hpp"
 // #include "utils/debug_utils.hpp"
@@ -80,8 +83,25 @@ OptimizerG2O::OptimizerG2O()
   main_graph->initGraph();
   main_graph->setFixedObjects(fixed_objects);
   map_odom_tranform_ = Eigen::Isometry3d::Identity();
-  last_abs_odom_pose_received_ = Eigen::Isometry3d::Identity();
-  last_transformed_odom_received_ = Eigen::Isometry3d::Identity();
+  last_odom_pose_added_ = Eigen::Isometry3d::Identity();
+}
+
+bool OptimizerG2O::generateOdometryInfo(
+  const Eigen::Isometry3d & _new_odometry_pose,
+  OdometryInfo & _odometry_info)
+{
+  if (odometry_is_relative_) {
+    // TODO(dps): RELATIVE ODOMETRY
+    // relative_pose = odom_pose;
+    ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
+    return false;
+  } else {
+    // ABSOLUTE ODOMETRY
+    _odometry_info.odom_ref = _new_odometry_pose;
+    _odometry_info.increment = last_odom_pose_added_.inverse() * _odometry_info.odom_ref;
+  }
+  _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
+  return true;
 }
 
 void OptimizerG2O::generateRelativeAndAbsoluteOdometryPoses(
@@ -96,7 +116,7 @@ void OptimizerG2O::generateRelativeAndAbsoluteOdometryPoses(
   } else {
     // ABSOLUTE ODOMETRY
     _absolute_odom_pose = _new_odometry_pose;
-    _relative_odom_pose = last_abs_odom_pose_received_.inverse() * _absolute_odom_pose;
+    _relative_odom_pose = last_odom_pose_added_.inverse() * _absolute_odom_pose;
   }
 }
 
@@ -104,46 +124,51 @@ bool OptimizerG2O::handleNewOdom(
   const Eigen::Isometry3d & _new_odometry_pose,
   const Eigen::MatrixXd & _odometry_covariance)
 {
-  Eigen::Isometry3d absolute_odom_pose;
-  Eigen::Isometry3d relative_odom_pose;
-  generateRelativeAndAbsoluteOdometryPoses(
-    _new_odometry_pose, absolute_odom_pose,
-    relative_odom_pose);
-  Eigen::Isometry3d transformed_odom_pose = map_odom_tranform_ * absolute_odom_pose;
+  OdometryInfo new_odometry_info;
+  generateOdometryInfo(_new_odometry_pose, new_odometry_info);
 
-  // WARN("new_odom_pose");
-  // auto pose = convertToPoseSE3(absolute_odom_pose);
-  // INFO(pose.position.x() << " " << pose.position.y() << " " << pose.position.z());
-  // pose = convertToPoseSE3(transformed_odom_pose);
-  // INFO(pose.position.x() << " " << pose.position.y() << " " << pose.position.z());
-
-  // TODO(dps): check time from the last odometry received
-  // Check distance from the last odometry received
-  double translation_distance_from_last_node = relative_odom_pose.translation().norm();
-  // FIXME: get rotation distance
-  // double rotation_distance_from_last_node = relative_odom_pose.rotation().norm();
-  if (translation_distance_from_last_node < odometry_distance_threshold_) {
-    // if (rotation_distance_from_last_node < odometry_orientation_threshold_) {
-    // INFO("New odometry distance is not enough: " << translation_distance_from_last_node);
+  if (!checkAddingConditions(new_odometry_info, odometry_distance_threshold_)) {
     return false;
-    // }
   }
   // INFO("New odometry distance is enough: " << translation_distance_from_last_node);
-  last_abs_odom_pose_received_ = absolute_odom_pose;
-  last_transformed_odom_received_ = transformed_odom_pose;
+  last_odom_pose_added_ = new_odometry_info.odom_ref;
 
-  main_graph->addNewKeyframe(transformed_odom_pose, relative_odom_pose, _odometry_covariance);
+  main_graph->addNewKeyframe(
+    new_odometry_info.map_ref, new_odometry_info.increment,
+    _odometry_covariance);
 
-  if (temp_graph_generated) {
+  if (temp_graph_generated_) {
+    // FIXME: Why are graphs with 1 node?
+    temp_graph->optimizeGraph();
+    FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
     for (auto object : temp_graph->getObjectNodes()) {
-      Eigen::Isometry3d absolute_obj_pose = object.second->getPose();
-      Eigen::Isometry3d relative_obj_pose = absolute_odom_pose.inverse() * absolute_obj_pose;
-      // FIXME: get object edge covariance
-      // main_graph->addNewObjectKeyframe(object.first, absolute_obj_pose, relative_obj_pose,
-      //                                  object.second->getCovariance());
-      main_graph->addNewObjectKeyframe(
-        object.first, absolute_obj_pose, relative_obj_pose,
-        main_graph_object_covariance);
+      // TODO(dps): Get all the nodes related and create new edges
+      ObjectDetection * object_detection;
+      ArucoNode * aruco_node = dynamic_cast<ArucoNode *>(object.second);
+      if (aruco_node) {
+        // Eigen::MatrixXd cov_matrix = aruco_node->getOptimizedInformationMatrix().inverse();
+        Eigen::MatrixXd cov_matrix = main_graph_object_covariance;
+
+        object_detection = new ArucoDetection(
+          object.first,
+          aruco_node->getPose(), cov_matrix, true);
+      }
+      GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
+      if (gate_node) {
+        Eigen::MatrixXd cov_matrix = main_graph_object_covariance;
+        // Eigen::MatrixXd cov_matrix = gate_node->getOptimizedInformationMatrix().inverse();
+
+        object_detection = new GateDetection(
+          object.first,
+          gate_node->getPosition(), cov_matrix, true);
+      }
+
+      if (!object_detection->prepareMeasurements(new_odometry_info)) {
+        ERROR("Prepare detection ERROR");
+        continue;
+      }
+      // FIXME(dps): get object edge covariance
+      main_graph->addNewObjectDetection(object_detection);
     }
 
     // FLAG("RESET TEMP GRAPH");
@@ -153,7 +178,7 @@ bool OptimizerG2O::handleNewOdom(
     }
     temp_graph.reset();
     temp_graph = std::make_shared<GraphG2O>("Temp Graph");
-    temp_graph_generated = false;
+    temp_graph_generated_ = false;
   }
 
   // TODO(dps): Choose when to optimize: either every time a new keyframe is added, or every certain
@@ -165,80 +190,58 @@ bool OptimizerG2O::handleNewOdom(
   return true;
 }
 
-void OptimizerG2O::handleNewObject(
-  const std::string & _obj_id,
-  const Eigen::Isometry3d & _obj_pose,
-  const Eigen::MatrixXd & _obj_covariance,
-  const Eigen::Isometry3d & _new_odometry_pose,
+bool OptimizerG2O::checkAddingConditions(
+  const OdometryInfo & _odometry, const double _distance_threshold)
+{
+  // TODO(dps): check time from the last odometry received
+  // FIXME(dps): get rotation distance
+  double translation_distance_from_last_node = _odometry.increment.translation().norm();
+  if (translation_distance_from_last_node < _distance_threshold) {
+    // std::cout << "New odometry distance is not enough" << std::endl;
+    return false;
+  }
+  return true;
+}
+
+// TODO(dps): return bool?
+void OptimizerG2O::handleNewObjectDetection(
+  ObjectDetection * _object,
+  const Eigen::Isometry3d & _odometry_pose,
   const Eigen::MatrixXd & _odometry_covariance)
 {
-  Eigen::Isometry3d absolute_odom_pose;
-  Eigen::Isometry3d relative_odom_pose;
-  generateRelativeAndAbsoluteOdometryPoses(
-    _new_odometry_pose, absolute_odom_pose,
-    relative_odom_pose);
-  Eigen::Isometry3d transformed_odom_pose = map_odom_tranform_ * absolute_odom_pose;
+  OdometryInfo detection_odometry;
+  generateOdometryInfo(_odometry_pose, detection_odometry);
 
-  if (!temp_graph_generated) {
-    temp_graph->initGraph(transformed_odom_pose);
-    main_graph_object_covariance = _obj_covariance;
-    temp_graph_generated = true;
+  if (!temp_graph_generated_) {
+    temp_graph->initGraph(detection_odometry.map_ref);
+    main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
+    temp_graph_generated_ = true;
   }
 
-  // check distance from the last odometry received
-  double translation_distance_from_last_node = relative_odom_pose.translation().norm();
-  if (translation_distance_from_last_node < obj_odometry_distance_threshold_) {
+  if (!checkAddingConditions(detection_odometry, obj_odometry_distance_threshold_)) {
     // std::cout << "New odometry distance is not enough" << std::endl;
     return;
   }
+
+  last_odom_pose_added_ = detection_odometry.odom_ref;
   // DEBUG("**** Adding new ODOM keyframe from Object detection ****");
-  temp_graph->addNewKeyframe(transformed_odom_pose, relative_odom_pose, _odometry_covariance);
+  temp_graph->addNewKeyframe(
+    detection_odometry.map_ref, detection_odometry.increment,
+    _odometry_covariance);
 
-  // DEBUG("**** Added new OBJECT keyframe ****");
-  Eigen::Isometry3d absolute_obj_pose;
-  Eigen::Isometry3d relative_obj_pose;
-  bool detections_are_absolute = false;
-
-  if (detections_are_absolute) {
-    absolute_obj_pose = _obj_pose;
-    relative_obj_pose = absolute_odom_pose.inverse() * absolute_obj_pose;
-
-  } else {
-    relative_obj_pose = _obj_pose;
-    absolute_obj_pose = transformed_odom_pose * relative_obj_pose;
+  if (!_object->prepareMeasurements(detection_odometry)) {
+    ERROR("Prepare detection ERROR");
+    return;
   }
 
-  // WARN("new_obj_pose");
-  // auto pose = convertToPoseSE3(relative_obj_pose);
-  // INFO(pose.position.x() << " " << pose.position.y() << " " << pose.position.z());
-  // WARN("abs_obj_pose");
-  // pose = convertToPoseSE3(absolute_obj_pose);
-  // INFO(pose.position.x() << " " << pose.position.y() << " " << pose.position.z());
-
-  temp_graph->addNewObjectKeyframe(_obj_id, absolute_obj_pose, relative_obj_pose, _obj_covariance);
+  temp_graph->addNewObjectDetection(_object);
   // temp_graph->optimizeGraph();
-
   // debugGraphVertices(temp_graph);
 }
 
 void OptimizerG2O::updateOdomMapTransform()
 {
-  map_odom_tranform_ = getOptimizedPose() * last_abs_odom_pose_received_.inverse();
-}
-
-bool OptimizerG2O::getNodePose(
-  g2o::HyperGraph::Vertex * _node,
-  std::pair<Eigen::Vector3d, Eigen::Quaterniond> & _node_pose)
-{
-  g2o::VertexSE3 * node_se3 = dynamic_cast<g2o::VertexSE3 *>(_node);
-  if (!node_se3) {
-    return false;
-  }
-
-  _node_pose.first = node_se3->estimate().translation();
-  _node_pose.second = Eigen::Quaterniond(node_se3->estimate().rotation());
-
-  return true;
+  map_odom_tranform_ = getOptimizedPose() * last_odom_pose_added_.inverse();
 }
 
 Eigen::Isometry3d OptimizerG2O::getOptimizedPose()

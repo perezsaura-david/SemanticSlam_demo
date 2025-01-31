@@ -67,10 +67,12 @@ public:
   ~SemanticSlam() {}
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
+  void gatePoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg);
 
 private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr aruco_pose_sub_;
+  rclcpp::Subscription<as2_msgs::msg::PoseStampedWithID>::SharedPtr gate_pose_sub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_main_markers_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_temp_markers_pub_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;

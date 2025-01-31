@@ -28,7 +28,7 @@
 
 
 /********************************************************************************************
- *  \file       utils.hpp
+ *  \file       graph_node_types.hpp
  *  \brief      An state estimation server for AeroStack2
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
@@ -37,35 +37,49 @@
  *              All Rights Reserved
  ********************************************************************************/
 
-#ifndef UTILS__GENERAL_UTILS_HPP_
-#define UTILS__GENERAL_UTILS_HPP_
+#ifndef AS2_SLAM__OBJECT_DETECTION_BUILDER_HPP_
+#define AS2_SLAM__OBJECT_DETECTION_BUILDER_HPP_
 
-#define RESET_COLOR "\033[0m"
-#define RED_COLOR "\033[0;31m"
-#define GREEN_COLOR "\033[1;32m"
-#define YELLOW_COLOR "\033[1;33m"
-#define MAGENTA_COLOR "\033[0;35m"
-#define CYAN_COLOR "\033[0;36m"
-#define ERROR(x) \
-  std::cerr << RED_COLOR << "[ERROR] " << x << std::endl \
-            << "\t  at line " << __LINE__ << " in function " << __func__ << RESET_COLOR \
-            << std::endl
+#include <unordered_map>
+#include <memory>
+#include <string>
+#include <object_detection_types.hpp>
+#include <graph_node_types.hpp>
 
-#define WARN(x) std::cout << YELLOW_COLOR << "[WARN] " << x << RESET_COLOR << std::endl
+struct GraphObject
+{
+  // GraphObject(GraphNode * _node, ObjectDetection * _object_detection);
+  GraphNode * node_;
+  ObjectDetection * object_detection_;
+};
 
-#define FLAG(x) std::cout << CYAN_COLOR << "[FLAG] " << x << RESET_COLOR << std::endl
-#define DEBUG(x) \
-  std::cout << YELLOW_COLOR << "[DEBUG] " << x << std::endl \
-            << "\t  at line " << __LINE__ << " in function " << __func__ << RESET_COLOR \
-            << std::endl
-#define INFO(x) std::cout << x << std::endl;
+// class ObjectDetectionFactory
+// {
+// public:
+//   static std::unique_ptr<ObjectDetection> createObjectFromNode(GraphNode * node)
+//   {
+//     auto it = registry().find(node->getNodeName());
+//     if (it != registry().end()) {
+//       return it->second(node);
+//     }
+//     throw std::runtime_error("Unknown node type: " + node->getNodeName());
+//   }
 
-#define NAME(x) "[" << x << "] "
+//   static void registerObject(
+//     const std::string & name,
+//     std::function<std::unique_ptr<ObjectDetection>(GraphNode *)> creator)
+//   {
+//     registry()[name] = creator;
+//   }
 
-#define FLAG_GRAPH(x) FLAG(NAME(name_) << x)
-#define WARN_GRAPH(x) WARN(NAME(name_) << x)
-#define INFO_GRAPH(x) INFO(NAME(name_) << x)
-#define DEBUG_GRAPH(x) DEBUG(NAME(name_) << x)
-#define ERROR_GRAPH(x) ERROR(NAME(name_) << x)
+// private:
+//   static std::unordered_map<std::string,
+//     std::function<std::unique_ptr<ObjectDetection>(GraphNode *)>> & registry()
+//   {
+//     static std::unordered_map<std::string,
+//       std::function<std::unique_ptr<ObjectDetection>(GraphNode *)>> instance;
+//     return instance;
+//   }
+// };
 
-#endif  // UTILS__GENERAL_UTILS_HPP_
+#endif  // AS2_SLAM__OBJECT_DETECTION_BUILDER_HPP_

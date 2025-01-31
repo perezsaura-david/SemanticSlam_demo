@@ -45,6 +45,7 @@
 #include <Eigen/Dense>
 #include <Eigen/src/Core/Matrix.h>
 #include <g2o/core/hyper_graph.h>
+#include <g2o/types/slam3d/edge_se3_pointxyz.h>
 #include <g2o/types/slam3d/types_slam3d.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 
@@ -134,6 +135,76 @@ protected:
   Eigen::Vector4d viz_color_ = {1.0, 1.0, 1.0, 1.0};
 };
 
+
+class GraphEdgeSE3Point3D : public GraphEdge
+{
+public:
+  GraphEdgeSE3Point3D(
+    GraphNodeSE3 * _node1,
+    GraphNodePoint3D * _node2,
+    const Eigen::Vector3d & _relative_position,
+    const Eigen::MatrixXd & _information_matrix)
+  {
+    if (_information_matrix.size() == 0) {
+      WARN("Information Matrix Empty");
+    }
+    edge_ = new g2o::EdgeSE3PointXYZ();
+    edge_->setMeasurement(_relative_position);
+    edge_->setInformation(_information_matrix);
+    edge_->vertices()[0] = _node1->getVertexSE3();
+    edge_->vertices()[1] = _node2->getVertexPoint3D();
+  }
+  ~GraphEdgeSE3Point3D() {}
+
+  g2o::HyperGraph::Edge * getEdge() override
+  {
+    return static_cast<g2o::HyperGraph::Edge *>(edge_);
+  }
+
+  g2o::EdgeSE3PointXYZ * getEdgeSE3Point3D() {return edge_;}
+
+  visualization_msgs::msg::Marker getVizMarker() override
+  {
+    visualization_msgs::msg::Marker edge_marker_msg;
+    edge_marker_msg.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    // node_marker_msg.header.frame_id = getReferenceFrame();
+    edge_marker_msg.ns = getVizMarkerNamespace();
+    edge_marker_msg.id = edge_->id();
+    edge_marker_msg.scale.x = 0.02;  // Thickness
+    edge_marker_msg.scale.y = 0.02;  // Thickness
+    edge_marker_msg.scale.z = 0.02;  // Thickness
+    Eigen::Vector4d color = getVizMarkerColor();
+    edge_marker_msg.color.r = color[0];
+    edge_marker_msg.color.g = color[1];
+    edge_marker_msg.color.b = color[2];
+    edge_marker_msg.color.a = color[3];
+    // Define the points in the line
+    for (int i = 0; i < 2; i++) {
+      g2o::VertexSE3 * node_se3 = dynamic_cast<g2o::VertexSE3 *>(getEdge()->vertices()[i]);
+      auto position = node_se3->estimate().translation();
+      geometry_msgs::msg::Point point;
+      point.x = position.x();
+      point.y = position.y();
+      point.z = position.z();
+      edge_marker_msg.points.emplace_back(point);
+    }
+    return edge_marker_msg;
+  }
+
+protected:
+  std::string getEdgeName() override {return edge_name_;}
+  std::string getVizMarkerNamespace() override
+  {
+    return element_name_ + "/" + getEdgeName();
+  }
+  Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}
+
+  g2o::EdgeSE3PointXYZ * edge_;
+  std::string element_name_ = "edge";
+  std::string edge_name_ = "SE3";
+  Eigen::Vector4d viz_color_ = {1.0, 1.0, 1.0, 1.0};
+};
+
 class ArucoEdge : public GraphEdgeSE3
 {
 public:
@@ -146,6 +217,23 @@ public:
 
 protected:
   std::string edge_name_ = "Aruco";
+  Eigen::Vector4d viz_color_ = {0.0, 1.0, 0.0, 1.0};
+  std::string getEdgeName() override {return edge_name_;}
+  Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}
+};
+
+class GateEdge : public GraphEdgeSE3Point3D
+{
+public:
+  GateEdge(
+    GraphNodeSE3 * _node1,
+    GraphNodePoint3D * _node2,
+    const Eigen::Vector3d & _position,
+    const Eigen::MatrixXd & _information_matrix)
+  : GraphEdgeSE3Point3D(_node1, _node2, _position, _information_matrix) {}
+
+protected:
+  std::string edge_name_ = "Gate";
   Eigen::Vector4d viz_color_ = {0.0, 1.0, 0.0, 1.0};
   std::string getEdgeName() override {return edge_name_;}
   Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}

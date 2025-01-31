@@ -41,6 +41,7 @@
 #define UTILS__CONVERSIONS_HPP_
 
 #include <Eigen/Dense>
+#include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Geometry/Transform.h>
 // #include <array>
 #include <string>
@@ -60,6 +61,15 @@ struct IsometryWithID
   Eigen::Isometry3d isometry;
 };
 
+struct OdometryInfo
+{
+  // Eigen::Isometry3d measurement;      // Odometry measurement received.
+  // Eigen::MatrixXd covariance_matrix;  // Covariance matrix of the odometry measurement.
+  Eigen::Isometry3d increment;     // Increment from the last odometry pose.
+  Eigen::Isometry3d odom_ref;      // Odometry pose referenced from the "odom" frame.
+  Eigen::Isometry3d map_ref;       // Odometry pose referenced from the "map" frame.
+};
+
 PoseSE3 convertToPoseSE3(
   const Eigen::Vector3d & _position,
   const Eigen::Quaterniond & _orientation);
@@ -72,6 +82,8 @@ Eigen::Isometry3d convertToIsometry3d(
 Eigen::Isometry3d convertToIsometry3d(const geometry_msgs::msg::Pose & _pose);
 
 geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d & _isometry);
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Vector3d & _vector3d);
+geometry_msgs::msg::Point convertToGeometryMsgPoint(const Eigen::Vector3d & _vector3d);
 geometry_msgs::msg::TransformStamped convertToTransformStamped(
   const Eigen::Isometry3d & _transform,
   const std::string & _parent_frame,

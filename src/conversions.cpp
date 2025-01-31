@@ -36,6 +36,7 @@
  */
 
 #include "utils/conversions.hpp"
+#include <Eigen/src/Core/Matrix.h>
 #include <string>
 #include <geometry_msgs/msg/detail/pose__struct.hpp>
 
@@ -94,6 +95,29 @@ geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Isometry3d & _iso
   geometry_msg_pose.orientation.x = pose.orientation.x();
   geometry_msg_pose.orientation.y = pose.orientation.y();
   geometry_msg_pose.orientation.z = pose.orientation.z();
+  return geometry_msg_pose;
+}
+
+geometry_msgs::msg::Pose convertToGeometryMsgPose(const Eigen::Vector3d & _vector3d)
+{
+  geometry_msgs::msg::Pose geometry_msg_pose;
+  geometry_msg_pose.position.x = _vector3d.x();
+  geometry_msg_pose.position.y = _vector3d.y();
+  geometry_msg_pose.position.z = _vector3d.z();
+  geometry_msg_pose.orientation.w = 1.0;
+  geometry_msg_pose.orientation.x = 0.0;
+  geometry_msg_pose.orientation.y = 0.0;
+  geometry_msg_pose.orientation.z = 0.0;
+  return geometry_msg_pose;
+}
+
+geometry_msgs::msg::Point convertToGeometryMsgPoint(const Eigen::Vector3d & _vector3d)
+{
+  geometry_msgs::msg::Point geometry_msg_pose;
+  // PoseSE3 pose = convertToPoseSE3(_vector3d);
+  geometry_msg_pose.x = _vector3d.x();
+  geometry_msg_pose.y = _vector3d.y();
+  geometry_msg_pose.z = _vector3d.z();
   return geometry_msg_pose;
 }
 

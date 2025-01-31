@@ -44,6 +44,7 @@
 
 #include "as2_slam/graph_node_types.hpp"
 #include "utils/conversions.hpp"
+#include "as2_slam/object_detection_types.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -62,6 +63,7 @@ SemanticSlam::SemanticSlam()
 {
   std::string default_odom_topic = "drone/sensor_measurements/odom";
   std::string default_aruco_pose_topic = "drone/detections/aruco";
+  std::string default_gate_pose_topic = "drone/detections/gate";
   std::string default_viz_main_markers_topic = "slam_viz/main";
   std::string default_viz_temp_markers_topic = "slam_viz/temp";
   std::string default_map_frame = "drone/map";
@@ -75,6 +77,8 @@ SemanticSlam::SemanticSlam()
   std::string odom_topic = this->declare_parameter("odometry_topic", default_odom_topic);
   std::string aruco_pose_topic =
     this->declare_parameter("aruco_pose_topic", default_aruco_pose_topic);
+  std::string gate_pose_topic =
+    this->declare_parameter("gate_pose_topic", default_gate_pose_topic);
   map_frame_ =
     this->declare_parameter<std::string>("map_frame", default_map_frame);
   odom_frame_ =
@@ -89,8 +93,11 @@ SemanticSlam::SemanticSlam()
   odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     odom_topic, sensor_qos, std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
   aruco_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
-    aruco_pose_topic, sensor_qos,
+    gate_pose_topic, sensor_qos,
     std::bind(&SemanticSlam::arucoPoseCallback, this, std::placeholders::_1));
+  gate_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
+    aruco_pose_topic, sensor_qos,
+    std::bind(&SemanticSlam::gatePoseCallback, this, std::placeholders::_1));
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -107,7 +114,6 @@ SemanticSlam::SemanticSlam()
   header.stamp = this->get_clock()->now();
   updateMapOdomTransform(header);
 }
-
 
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
@@ -129,7 +135,7 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   if (new_node_added) {
     visualizeMainGraph();
     visualizeCleanTempGraph();
-    updateMapOdomTransform(msg->header);
+    // updateMapOdomTransform(msg->header);
   }
 
   map_odom_transform_msg_.header.stamp = msg->header.stamp;
@@ -142,18 +148,40 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
   // TODO(dps): Define how to use this
   // msg->pose.header.frame_id;
   // msg->pose.header.stamp;
-  // PoseSE3 aruco_pose = generatePoseFromMsg(msg);
   Eigen::Isometry3d aruco_pose = generatePoseFromMsg(msg);
-  // Covariance
   Eigen::Matrix<double, 6, 6> aruco_covariance = Eigen::MatrixXd::Identity(6, 6) * 10.0;
-
   aruco_covariance(0) = 0.01;
   aruco_covariance(7) = 0.01;
   aruco_covariance(14) = 0.01;
 
-  optimizer_ptr_->handleNewObject(
-    aruco_id, aruco_pose, aruco_covariance,
-    last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
+  bool detections_are_absolute = false;
+
+  ArucoDetection * gate(new ArucoDetection(
+      aruco_id, aruco_pose, aruco_covariance,
+      detections_are_absolute));
+
+  optimizer_ptr_->handleNewObjectDetection(
+    gate, last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
+  // optimizer_ptr_->handleNewObject(
+  //   aruco_id, aruco_pose, aruco_covariance,
+  //   last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
+  visualizeTempGraph();
+}
+
+void SemanticSlam::gatePoseCallback(const as2_msgs::msg::PoseStampedWithID::SharedPtr msg)
+{
+  std::string gate_id = msg->id;
+  Eigen::Vector3d gate_position = generatePoseFromMsg(msg).translation();
+  Eigen::Matrix<double, 3, 3> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * 0.01;
+
+  bool detections_are_absolute = false;
+
+  GateDetection * gate(new GateDetection(
+      gate_id, gate_position, gate_covariance,
+      detections_are_absolute));
+
+  optimizer_ptr_->handleNewObjectDetection(
+    gate, last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
   visualizeTempGraph();
 }
 
