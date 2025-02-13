@@ -47,10 +47,12 @@
 #include <g2o/core/hyper_graph.h>
 #include <g2o/types/slam3d/edge_se3_pointxyz.h>
 #include <g2o/types/slam3d/types_slam3d.h>
+#include <g2o/types/slam3d/vertex_pointxyz.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 
 #include <string>
 
+#include "g2o/g2o_edge_types.hpp"
 #include "utils/conversions.hpp"
 #include "utils/general_utils.hpp"
 #include <geometry_msgs/msg/detail/pose__struct.hpp>
@@ -148,7 +150,7 @@ public:
     if (_information_matrix.size() == 0) {
       WARN("Information Matrix Empty");
     }
-    edge_ = new g2o::EdgeSE3PointXYZ();
+    edge_ = new g2o_custom::EdgeSE3Point3D();
     edge_->setMeasurement(_relative_position);
     edge_->setInformation(_information_matrix);
     edge_->vertices()[0] = _node1->getVertexSE3();
@@ -161,7 +163,7 @@ public:
     return static_cast<g2o::HyperGraph::Edge *>(edge_);
   }
 
-  g2o::EdgeSE3PointXYZ * getEdgeSE3Point3D() {return edge_;}
+  g2o_custom::EdgeSE3Point3D * getEdgeSE3Point3D() {return edge_;}
 
   visualization_msgs::msg::Marker getVizMarker() override
   {
@@ -180,8 +182,21 @@ public:
     edge_marker_msg.color.a = color[3];
     // Define the points in the line
     for (int i = 0; i < 2; i++) {
-      g2o::VertexSE3 * node_se3 = dynamic_cast<g2o::VertexSE3 *>(getEdge()->vertices()[i]);
-      auto position = node_se3->estimate().translation();
+      Eigen::Vector3d position;
+      if (i == 0) {
+        g2o::VertexSE3 * node_se3 = dynamic_cast<g2o::VertexSE3 *>(getEdge()->vertices()[i]);
+        if (!node_se3) {
+          DEBUG("Node SE3 not found");
+        }
+        position = node_se3->estimate().translation();
+      } else {
+        g2o::VertexPointXYZ * node_point3D =
+          dynamic_cast<g2o::VertexPointXYZ *>(getEdge()->vertices()[i]);
+        if (!node_point3D) {
+          DEBUG("Node Point3D not found");
+        }
+        position = node_point3D->estimate();
+      }
       geometry_msgs::msg::Point point;
       point.x = position.x();
       point.y = position.y();
@@ -199,7 +214,7 @@ protected:
   }
   Eigen::Vector4d getVizMarkerColor() override {return viz_color_;}
 
-  g2o::EdgeSE3PointXYZ * edge_;
+  g2o_custom::EdgeSE3Point3D * edge_;
   std::string element_name_ = "edge";
   std::string edge_name_ = "SE3";
   Eigen::Vector4d viz_color_ = {1.0, 1.0, 1.0, 1.0};

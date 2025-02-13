@@ -88,8 +88,8 @@ public:
     node_marker_msg.id = vertex_->id();
     node_marker_msg.pose = convertToGeometryMsgPose(getPosition());
     node_marker_msg.scale.x = 0.5;
-    node_marker_msg.scale.y = 0.05;
-    node_marker_msg.scale.z = 0.05;
+    node_marker_msg.scale.y = 0.5;
+    node_marker_msg.scale.z = 0.5;
     Eigen::Vector4d color = getVizMarkerColor();
     node_marker_msg.color.r = color[0];
     node_marker_msg.color.g = color[1];

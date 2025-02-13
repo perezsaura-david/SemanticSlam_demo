@@ -47,6 +47,7 @@
 #include "as2_slam/graph_node_types.hpp"
 #include "as2_slam/graph_edge_types.hpp"
 #include "utils/conversions.hpp"
+#include "utils/general_utils.hpp"
 // #include "as2_slam/optimizer_g2o.hpp"
 
 class ObjectDetection
@@ -100,9 +101,7 @@ public:
 
   bool prepareMeasurements(const OdometryInfo & _detection_odometry) override
   {
-    INFO("Original");
-    WARN(measured_pose_.translation());
-    WARN(measured_pose_.rotation());
+    // TODO(dps): Check if we should use map_ref or odom_ref
     if (detections_are_absolute_) {
       edge_measurement_ = _detection_odometry.map_ref.inverse() * measured_pose_;
       node_estimation_ = measured_pose_;
@@ -111,9 +110,10 @@ public:
       edge_measurement_ = measured_pose_;
       node_estimation_ = _detection_odometry.map_ref * measured_pose_;
     }
-    INFO("Prepared");
-    WARN(measured_pose_.translation());
-    WARN(measured_pose_.rotation());
+    // INFO(PRINT_VAR(_detection_odometry.odom_ref.translation().transpose()));
+    // INFO(PRINT_VAR(_detection_odometry.map_ref.translation().transpose()));
+    // INFO(PRINT_VAR(edge_measurement_.translation().transpose()));
+    // INFO(PRINT_VAR(node_estimation_.translation().transpose()));
     return true;
   }
 
@@ -143,6 +143,10 @@ public:
       edge_measurement_ = measured_position_;
       node_estimation_ = _detection_odometry.map_ref * measured_position_;
     }
+    // INFO(PRINT_VAR(_detection_odometry.odom_ref.translation().transpose()));
+    // INFO(PRINT_VAR(_detection_odometry.map_ref.translation().transpose()));
+    // INFO(PRINT_VAR(edge_measurement_.transpose()));
+    // INFO(PRINT_VAR(node_estimation_.transpose()));
     return true;
   }
 
@@ -175,7 +179,7 @@ public:
     // if (!detection_node_se3) {DEBUG_GRAPH("Detection node is null");}
     // FIXME(Miguel): Check dynamic cast
     return new ArucoEdge(
-      node_se3, detection_node_se3, measured_pose_,
+      node_se3, detection_node_se3, edge_measurement_,
       information_matrix_);
   }
 };
@@ -199,11 +203,11 @@ public:
   {
     GraphNodeSE3 * node_se3 = dynamic_cast<GraphNodeSE3 *>(_node);
     GraphNodePoint3D * detection_node_point3d = dynamic_cast<GraphNodePoint3D *>(_detection_node);
-    // if (!node_se3) {DEBUG_GRAPH("Reference node is null");}
-    // if (!detection_node_point3d) {DEBUG_GRAPH("Detection node is null");}
+    if (!node_se3) {DEBUG("Reference node is null");}
+    if (!detection_node_point3d) {DEBUG("Detection node is null");}
     // FIXME(Miguel): Check dynamic cast
     return new GateEdge(
-      node_se3, detection_node_point3d, measured_position_,
+      node_se3, detection_node_point3d, edge_measurement_,
       information_matrix_);
   }
 

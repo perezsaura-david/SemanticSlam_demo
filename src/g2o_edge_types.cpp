@@ -28,8 +28,8 @@
 
 
 /********************************************************************************************
- *  \file       debug_utils.hpp
- *  \brief      An state estimation server for AeroStack2
+ *  \file       edge_types.hpp
+ *  \brief      Custom g2o edges for SemanticSlam
  *  \authors    David Pérez Saura
  *              Miguel Fernández Cortizas
  *
@@ -37,13 +37,16 @@
  *              All Rights Reserved
  ********************************************************************************/
 
-#ifndef UTILS__DEBUG_UTILS_HPP_
-#define UTILS__DEBUG_UTILS_HPP_
+#include "g2o/g2o_edge_types.hpp"
+#include <Eigen/Core>
 
-#include <memory>
-#include "as2_slam/graph_g2o.hpp"
 
-void debugGraphVertices(std::shared_ptr<GraphG2O> _graph);
-void debugComputeCovariance(const g2o::SparseBlockMatrix<Eigen::MatrixXd> & _spinv, int _node_id);
-
-#endif  // UTILS__DEBUG_UTILS_HPP_
+// Function to compute the skew-symmetric matrix of a 3D vector
+Eigen::Matrix3d skewSymmetric(const Eigen::Vector3d & v)
+{
+  Eigen::Matrix3d skew;
+  skew << 0, -v(2), v(1),
+    v(2), 0, -v(0),
+    -v(1), v(0), 0;
+  return skew;
+}

@@ -48,7 +48,7 @@
 #include "as2_slam/object_detection_types.hpp"
 #include "utils/conversions.hpp"
 #include "utils/general_utils.hpp"
-// #include "utils/debug_utils.hpp"
+#include "utils/debug_utils.hpp"
 
 OptimizerG2O::OptimizerG2O()
 {
@@ -87,7 +87,7 @@ OptimizerG2O::OptimizerG2O()
 }
 
 bool OptimizerG2O::generateOdometryInfo(
-  const Eigen::Isometry3d & _new_odometry_pose,
+  const Eigen::Isometry3d & _new_odometry_pose, const Eigen::Isometry3d _last_odom_pose_added,
   OdometryInfo & _odometry_info)
 {
   if (odometry_is_relative_) {
@@ -98,26 +98,10 @@ bool OptimizerG2O::generateOdometryInfo(
   } else {
     // ABSOLUTE ODOMETRY
     _odometry_info.odom_ref = _new_odometry_pose;
-    _odometry_info.increment = last_odom_pose_added_.inverse() * _odometry_info.odom_ref;
+    _odometry_info.increment = _last_odom_pose_added.inverse() * _odometry_info.odom_ref;
   }
   _odometry_info.map_ref = map_odom_tranform_ * _odometry_info.odom_ref;
   return true;
-}
-
-void OptimizerG2O::generateRelativeAndAbsoluteOdometryPoses(
-  const Eigen::Isometry3d & _new_odometry_pose,
-  Eigen::Isometry3d & _absolute_odom_pose,
-  Eigen::Isometry3d & _relative_odom_pose)
-{
-  if (odometry_is_relative_) {
-    // TODO(dps): RELATIVE ODOMETRY
-    // relative_pose = odom_pose;
-    ERROR("RELATIVE ODOMETRY NOT IMPLEMENTED");
-  } else {
-    // ABSOLUTE ODOMETRY
-    _absolute_odom_pose = _new_odometry_pose;
-    _relative_odom_pose = last_odom_pose_added_.inverse() * _absolute_odom_pose;
-  }
 }
 
 bool OptimizerG2O::handleNewOdom(
@@ -125,7 +109,7 @@ bool OptimizerG2O::handleNewOdom(
   const Eigen::MatrixXd & _odometry_covariance)
 {
   OdometryInfo new_odometry_info;
-  generateOdometryInfo(_new_odometry_pose, new_odometry_info);
+  generateOdometryInfo(_new_odometry_pose, last_odom_pose_added_, new_odometry_info);
 
   if (!checkAddingConditions(new_odometry_info, odometry_distance_threshold_)) {
     return false;
@@ -138,9 +122,8 @@ bool OptimizerG2O::handleNewOdom(
     _odometry_covariance);
 
   if (temp_graph_generated_) {
-    // FIXME: Why are graphs with 1 node?
     temp_graph->optimizeGraph();
-    FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
+    // FLAG("ADD TEMP GRAPH DETECTIONS TO MAIN GRAPH");
     for (auto object : temp_graph->getObjectNodes()) {
       // TODO(dps): Get all the nodes related and create new edges
       ObjectDetection * object_detection;
@@ -155,8 +138,14 @@ bool OptimizerG2O::handleNewOdom(
       }
       GateNode * gate_node = dynamic_cast<GateNode *>(object.second);
       if (gate_node) {
-        Eigen::MatrixXd cov_matrix = main_graph_object_covariance;
+        // Eigen::MatrixXd cov_matrix = main_graph_object_covariance;
         // Eigen::MatrixXd cov_matrix = gate_node->getOptimizedInformationMatrix().inverse();
+        Eigen::MatrixXd cov_matrix = temp_graph->computeNodeCovariance(gate_node);
+        if (cov_matrix.size() == 0) {
+          WARN("Matrix is empty! Using default matrix");
+          cov_matrix = main_graph_object_covariance;
+        }
+        // INFO(PRINT_VAR(cov_matrix));
 
         object_detection = new GateDetection(
           object.first,
@@ -184,7 +173,9 @@ bool OptimizerG2O::handleNewOdom(
   // TODO(dps): Choose when to optimize: either every time a new keyframe is added, or every certain
   // period of time
   main_graph->optimizeGraph();
-  updateOdomMapTransform();
+  if (generate_odom_map_transform_) {
+    updateOdomMapTransform();
+  }
   // debugGraphVertices(main_graph);
 
   return true;
@@ -209,25 +200,31 @@ void OptimizerG2O::handleNewObjectDetection(
   const Eigen::Isometry3d & _odometry_pose,
   const Eigen::MatrixXd & _odometry_covariance)
 {
+  if (!temp_graph_generated_) {
+    last_obj_odom_pose_added_ = last_odom_pose_added_;
+  }
+
   OdometryInfo detection_odometry;
-  generateOdometryInfo(_odometry_pose, detection_odometry);
+  generateOdometryInfo(_odometry_pose, last_obj_odom_pose_added_, detection_odometry);
 
   if (!temp_graph_generated_) {
     temp_graph->initGraph(detection_odometry.map_ref);
     main_graph_object_covariance = _object->getCovarianceMatrix();  // FIXME(dps): remove this
     temp_graph_generated_ = true;
+    // last_obj_odom_pose_added_ = detection_odometry.odom_ref;
+  } else {
+    if (!checkAddingConditions(detection_odometry, obj_odometry_distance_threshold_)) {
+      // std::cout << "New odometry distance is not enough" << std::endl;
+      return;
+    }
+    // last_obj_odom_pose_added_ = detection_odometry.odom_ref;
+    // DEBUG("**** Adding new ODOM keyframe from Object detection ****");
+    temp_graph->addNewKeyframe(
+      detection_odometry.map_ref, detection_odometry.increment,
+      _odometry_covariance);
   }
 
-  if (!checkAddingConditions(detection_odometry, obj_odometry_distance_threshold_)) {
-    // std::cout << "New odometry distance is not enough" << std::endl;
-    return;
-  }
-
-  last_odom_pose_added_ = detection_odometry.odom_ref;
-  // DEBUG("**** Adding new ODOM keyframe from Object detection ****");
-  temp_graph->addNewKeyframe(
-    detection_odometry.map_ref, detection_odometry.increment,
-    _odometry_covariance);
+  last_obj_odom_pose_added_ = detection_odometry.odom_ref;
 
   if (!_object->prepareMeasurements(detection_odometry)) {
     ERROR("Prepare detection ERROR");
@@ -235,6 +232,7 @@ void OptimizerG2O::handleNewObjectDetection(
   }
 
   temp_graph->addNewObjectDetection(_object);
+  // debugGraphVertices(temp_graph);
   // temp_graph->optimizeGraph();
   // debugGraphVertices(temp_graph);
 }

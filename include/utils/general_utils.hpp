@@ -68,4 +68,6 @@
 #define DEBUG_GRAPH(x) DEBUG(NAME(name_) << x)
 #define ERROR_GRAPH(x) ERROR(NAME(name_) << x)
 
+#define PRINT_VAR(var) #var << " = " << var
+
 #endif  // UTILS__GENERAL_UTILS_HPP_

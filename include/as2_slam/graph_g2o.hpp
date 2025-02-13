@@ -91,6 +91,7 @@ public:
   //   const Eigen::Isometry3d & _obj_relative_pose,
   //   const Eigen::MatrixXd & _obj_covariance);
   void addNewObjectDetection(ObjectDetection * _object);
+  Eigen::MatrixXd computeNodeCovariance(GraphNode * _node);
 
   void optimizeGraph();
   void setFixedObjects(const std::vector<IsometryWithID> & _fixed_objects);

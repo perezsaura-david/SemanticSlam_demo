@@ -111,6 +111,7 @@ set(SOURCE_CPP_FILES
   src/semantic_slam.cpp
   src/optimizer_g2o.cpp
   src/graph_g2o.cpp
+  src/g2o_edge_types.cpp
   src/conversions.cpp
   src/debug_utils.cpp)
 

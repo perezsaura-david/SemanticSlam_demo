@@ -67,33 +67,22 @@ public:
   bool handleNewOdom(
     const Eigen::Isometry3d & _new_odometry_pose,
     const Eigen::MatrixXd & _odometry_covariance);
-  // void handleNewObject(
-  //   const std::string & _obj_id,
-  //   const Eigen::Isometry3d & _obj_pose,
-  //   const Eigen::MatrixXd & _obj_covariance,
-  //   const Eigen::Isometry3d & _new_odometry_pose,
-  //   const Eigen::MatrixXd & _odometry_covariance);
   void handleNewObjectDetection(
     ObjectDetection * _object,
     const Eigen::Isometry3d & _odometry_pose,
     const Eigen::MatrixXd & _odometry_covariance);
-  void generateRelativeAndAbsoluteOdometryPoses(
-    const Eigen::Isometry3d & _odom_pose,
-    Eigen::Isometry3d & _absolute_odom_pose,
-    Eigen::Isometry3d & _relative_odom_pose);
   bool generateOdometryInfo(
     const Eigen::Isometry3d & _new_odometry_pose,
     OdometryInfo & _odometry_info);
+  bool generateOdometryInfo(
+    const Eigen::Isometry3d & _new_odometry_pose, const Eigen::Isometry3d _last_odom_pose_added,
+    OdometryInfo & _odometry_info);
   void updateOdomMapTransform();
+  bool checkAddingConditions(
+    const OdometryInfo & _odometry, const double distance_threshold);
 
   Eigen::Isometry3d getOptimizedPose();
   Eigen::Isometry3d getMapOdomTransform();
-  bool checkAddingConditions(
-    const OdometryInfo & _odometry, const double distance_threshold);
-  // bool prepareDetectionMeasurements(Object * object);
-  // bool prepareDetectionMeasurements(
-  //   Object * _object,
-  //   const OdometryInfo & _detection_odometry);
 
 private:
   bool first_odom_ = true;
@@ -108,21 +97,15 @@ private:
   Eigen::MatrixXd main_graph_object_covariance;
   Eigen::Isometry3d map_odom_tranform_;
   Eigen::Isometry3d last_odom_pose_added_;
-  // Eigen::Isometry3d last_abs_odom_pose_received_;
-  // Eigen::Isometry3d last_transformed_odom_received_;
+  Eigen::Isometry3d last_obj_odom_pose_added_;
 
   // PARAMETERS
-  double odometry_distance_threshold_ = 1.0;         // meters
+  double odometry_distance_threshold_ = 2.0;         // meters
   double odometry_orientation_threshold_ = 1.0;        // radians
   double obj_odometry_distance_threshold_ = 0.2;     // meters
-  double obj_odometry_orientation_threshold_ = 0.5;  // radians
+  double obj_odometry_orientation_threshold_ = 0.2;  // radians
   bool odometry_is_relative_ = false;
+  bool generate_odom_map_transform_ = false;
 };
 
-// bool getNodePose(
-//   g2o::HyperGraph::Vertex * _node,
-//   std::pair<Eigen::Vector3d, Eigen::Quaterniond> & _node_pose);
-// std::vector<std::vector<std::pair<Eigen::Vector3d, Eigen::Quaterniond>>> getEdgesLines(
-//   std::shared_ptr<GraphG2O> & _graph);
-//
 #endif  // AS2_SLAM__OPTIMIZER_G2O_HPP_

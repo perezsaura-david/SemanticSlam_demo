@@ -49,11 +49,6 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-// #include "utils/general_utils.hpp"
-// #include "as2_core/names/topics.hpp"
-// #include "as2_core/utils/frame_utils.hpp"
-// #include "as2_core/utils/tf_utils.hpp"
-// #include <array>
 // #include <filesystem>
 // #include <pluginlib/class_loader.hpp>
 // #include "plugin_base.hpp"
@@ -93,10 +88,10 @@ SemanticSlam::SemanticSlam()
   odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     odom_topic, sensor_qos, std::bind(&SemanticSlam::odomCallback, this, std::placeholders::_1));
   aruco_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
-    gate_pose_topic, sensor_qos,
+    aruco_pose_topic, sensor_qos,
     std::bind(&SemanticSlam::arucoPoseCallback, this, std::placeholders::_1));
   gate_pose_sub_ = this->create_subscription<as2_msgs::msg::PoseStampedWithID>(
-    aruco_pose_topic, sensor_qos,
+    gate_pose_topic, sensor_qos,
     std::bind(&SemanticSlam::gatePoseCallback, this, std::placeholders::_1));
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -118,10 +113,9 @@ SemanticSlam::SemanticSlam()
 void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   Eigen::Isometry3d odom_pose = convertToIsometry3d(msg->pose.pose);
-  Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
-    msg->pose.covariance.data());
-
-  // Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.01;
+  // Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> odom_covariance(
+  //   msg->pose.covariance.data());
+  Eigen::Matrix<double, 6, 6> odom_covariance = Eigen::MatrixXd::Identity(6, 6) * 0.01;
 
   last_odom_abs_pose_received_ = odom_pose;
   last_odom_abs_covariance_received_ = odom_covariance;
@@ -135,7 +129,7 @@ void SemanticSlam::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   if (new_node_added) {
     visualizeMainGraph();
     visualizeCleanTempGraph();
-    // updateMapOdomTransform(msg->header);
+    updateMapOdomTransform(msg->header);
   }
 
   map_odom_transform_msg_.header.stamp = msg->header.stamp;
@@ -156,12 +150,12 @@ void SemanticSlam::arucoPoseCallback(const as2_msgs::msg::PoseStampedWithID::Sha
 
   bool detections_are_absolute = false;
 
-  ArucoDetection * gate(new ArucoDetection(
+  ArucoDetection * aruco(new ArucoDetection(
       aruco_id, aruco_pose, aruco_covariance,
       detections_are_absolute));
 
   optimizer_ptr_->handleNewObjectDetection(
-    gate, last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
+    aruco, last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
   // optimizer_ptr_->handleNewObject(
   //   aruco_id, aruco_pose, aruco_covariance,
   //   last_odom_abs_pose_received_, last_odom_abs_covariance_received_);
@@ -172,7 +166,7 @@ void SemanticSlam::gatePoseCallback(const as2_msgs::msg::PoseStampedWithID::Shar
 {
   std::string gate_id = msg->id;
   Eigen::Vector3d gate_position = generatePoseFromMsg(msg).translation();
-  Eigen::Matrix<double, 3, 3> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * 0.01;
+  Eigen::Matrix<double, 3, 3> gate_covariance = Eigen::MatrixXd::Identity(3, 3) * 0.001;
 
   bool detections_are_absolute = false;
 
